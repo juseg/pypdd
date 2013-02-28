@@ -63,8 +63,8 @@ def init():
 
 		# assign temperature and precipitation values
 		for i in t:
-			temp[i] = xx + 10 * cos(i*2*pi/12)
-			prec[i] =      yy * cos(i*2*pi/12)
+			temp[i] = xx - 10 * cos(i*2*pi/12)
+			prec[i] = yy * (1 - cos(i*2*pi/12))/4
 
 		# close netcdf file
 		nc.close()
