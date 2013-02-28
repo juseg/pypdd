@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import numpy as np
-from netCDF4 import Dataset as NC
 
 # PDD model class
 
@@ -56,12 +55,38 @@ class PDDModel():
     return np.where(snow_acc > 0, snow_acc, snow*self.pdd_refreeze
       + snow_acc*self.pdd_factor_ice/self.pdd_factor_snow)
 
+  def nc(self, i_file, o_file):
+    """NetCDF interface"""
+
+    from netCDF4 import Dataset as NC
+
+    # open netcdf files
+    i = NC(i_file, 'r')
+    o = NC(o_file, 'w')
+
+    # read input data
+    temp = i.variables['air_temp'][:]
+    prec = i.variables['precipitation'][:]
+
+    # create dimensions
+    o.createDimension('x', len(i.dimensions['x']))
+    o.createDimension('y', len(i.dimensions['y']))
+
+    # create variables
+    smbvar = o.createVariable('smb', 'f4', ('x', 'y'))
+    smbvar[:] = self(temp, prec)
+
+    # close netcdf files
+    i.close()
+    o.close()
+
 # netCDF IO
 
 def init():
     """Create an artificial PISM atmosphere file"""
 
     from math import cos, pi
+    from netCDF4 import Dataset as NC
 
     # open netcdf file
     nc = NC('atm.nc', 'w')
@@ -93,36 +118,6 @@ def init():
     # close netcdf file
     nc.close()
 
-def main():
-    """Read atmosphere file and output surface mass balance"""
-
-    # open netcdf files
-    i = NC('atm.nc', 'r')
-    o = NC('clim.nc', 'w')
-
-    # read input data
-    temp = i.variables['air_temp'][:]
-    prec = i.variables['precipitation'][:]
-
-    # create dimensions
-    for dimname, dim in i.dimensions.items():
-      o.createDimension(dimname, len(dim))
-
-    # initiate PDD model
-    pdd=PDDModel()
-
-    # create variables
-    #pddvar = o.createVariable('pdd', 'f4', ('x', 'y'))
-    #snowvar = o.createVariable('snow', 'f4', ('x', 'y'))
-    smbvar = o.createVariable('smb', 'f4', ('x', 'y'))
-
-    # compute surface mass balance
-    smbvar[:] = pdd(temp, prec)
-
-    # close netcdf files
-    i.close()
-    o.close()
-
 # Called at execution
 
 if __name__ == "__main__":
@@ -130,6 +125,9 @@ if __name__ == "__main__":
     # prepare dummy input dataset
     init()
 
-    # run the mass balance model
-    main()
+    # initiate PDD model
+    pdd=PDDModel()
+
+    # compute surface mass balance
+    pdd.nc('atm.nc', 'clim.nc')
 
