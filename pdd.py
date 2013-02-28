@@ -3,11 +3,28 @@
 import numpy as np
 from netCDF4 import Dataset as NC
 
+# PDD model parameters
+
+temp_snow = 0
+temp_rain = 2
+pdd_factor_snow = 0.003
+pdd_factor_ice = 0.008
+pdd_refreeze = 0.6
+pdd_std_dev = 5
+
 # PDD model computations
 
 def pdd(temp):
 		"""Compute positive degree days from temperature time series"""
 		return sum(np.greater(temp,0)*temp)*365.242198781/12
+
+def snowfrac(temp):
+		"""Compute snow fraction from temperature"""
+		return np.clip((temp_rain-temp)/(temp_rain-temp_snow), 0, 1)
+
+def snow(temp, prec):
+		"""Compute snow fall from temperature and precipitation"""
+		return sum(snowfrac(temp)*prec)
 
 # netCDF IO
 
@@ -27,6 +44,7 @@ def init():
 		# prepare coordinate arrays
 		x = range(len(xdim))
 		y = range(len(ydim))
+		t = range(len(tdim))
 		(xx, yy) = np.meshgrid(x, y)
 
 		# create air temperature variable
@@ -53,8 +71,8 @@ def main():
 		o = NC('clim.nc', 'w')
 
 		# read input data
-		temp = i.variables['air_temp']
-		prec = i.variables['precipitation']
+		temp = i.variables['air_temp'][:]
+		prec = i.variables['precipitation'][:]
 
 		# create dimensions
 		tdim = o.createDimension('time', 12)
@@ -63,8 +81,12 @@ def main():
 
 		# compute the number of positive degree days
 		pddvar = o.createVariable('pdd', 'f4', ('x', 'y'))
-		print pddvar[:].shape
 		pddvar[:] = pdd(temp)
+
+		# compute snowfall
+		snowvar = o.createVariable('snow', 'f4', ('x', 'y'))
+		snowvar[:] = snow(temp, prec)
+
 
 # Called at execution
 
