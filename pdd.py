@@ -81,9 +81,9 @@ def main():
 		prec = i.variables['precipitation'][:]
 
 		# create dimensions
-		tdim = o.createDimension('time', 12)
-		xdim = o.createDimension('x', 8)
-		ydim = o.createDimension('y', 8)
+		for dimname, dim in i.dimensions.items():
+			print dimname, len(dim)
+			o.createDimension(dimname, len(dim))
 
 		# compute the number of positive degree days
 		pddvar = o.createVariable('pdd', 'f4', ('x', 'y'))
