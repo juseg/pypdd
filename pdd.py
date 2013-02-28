@@ -26,6 +26,12 @@ def snow(temp, prec):
 		"""Compute snow fall from temperature and precipitation"""
 		return sum(snowfrac(temp)*prec)
 
+def smb(snow, pdd):
+		"""Compute surface mass balance from snow fall and pdd sum"""
+		return np.where(pdd_factor_snow*pdd < snow,
+			snow - pdd_factor_snow*pdd,
+			pdd_refreeze*snow - pdd_factor_ice*(pdd-snow/pdd_factor_snow))
+
 # netCDF IO
 
 def init():
@@ -87,6 +93,9 @@ def main():
 		snowvar = o.createVariable('snow', 'f4', ('x', 'y'))
 		snowvar[:] = snow(temp, prec)
 
+		# compute surface mass balance
+		smbvar = o.createVariable('smb', 'f4', ('x', 'y'))
+		smbvar[:] = smb(snowvar[:], pddvar[:])
 
 # Called at execution
 
