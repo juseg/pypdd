@@ -25,6 +25,13 @@ class PDDModel():
 		self.temp_snow       = temp_snow
 		self.temp_rain       = temp_rain
 
+	def __call__(self, temp, prec):
+		"""Compute surface mass balance from temperature and precipitation"""
+		pdd  = self.pdd(temp)
+		snow = self.snow(temp, prec)
+		smb  = self.smb(snow, pdd)
+		return smb
+
 	def pdd(self, temp):
 		"""Compute positive degree days from temperature time series"""
 		return sum(np.greater(temp,0)*temp)*365.242198781/12
@@ -104,17 +111,17 @@ def main():
 		# initiate PDD model
 		pdd=PDDModel()
 
-		# compute the number of positive degree days
-		pddvar = o.createVariable('pdd', 'f4', ('x', 'y'))
-		pddvar[:] = pdd.pdd(temp)
-
-		# compute snowfall
-		snowvar = o.createVariable('snow', 'f4', ('x', 'y'))
-		snowvar[:] = pdd.snow(temp, prec)
+		# create variables
+		#pddvar = o.createVariable('pdd', 'f4', ('x', 'y'))
+		#snowvar = o.createVariable('snow', 'f4', ('x', 'y'))
+		smbvar = o.createVariable('smb', 'f4', ('x', 'y'))
 
 		# compute surface mass balance
-		smbvar = o.createVariable('smb', 'f4', ('x', 'y'))
-		smbvar[:] = pdd.smb(snowvar[:], pddvar[:])
+		smbvar[:] = pdd(temp, prec)
+
+		# close netcdf files
+		i.close()
+		o.close()
 
 # Called at execution
 
