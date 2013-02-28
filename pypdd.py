@@ -80,16 +80,16 @@ class PDDModel():
     i.close()
     o.close()
 
-# netCDF IO
+# netCDF climate initializer
 
-def init():
-    """Create an artificial PISM atmosphere file"""
+def make_fake_climate(filename):
+    """Create an artificial temperature and precipitation file"""
 
     from math import cos, pi
     from netCDF4 import Dataset as NC
 
     # open netcdf file
-    nc = NC('atm.nc', 'w')
+    nc = NC(filename, 'w')
 
     # create dimensions
     tdim = nc.createDimension('time', 12)
@@ -121,13 +121,19 @@ def init():
 # Called at execution
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='Compute glacier surface mass balance from temperature and precipitation')
+    parser.add_argument('-i', help='input file')
+    parser.add_argument('-o', help='output file', default='smb.nc')
+    args = parser.parse_args()
 
     # prepare dummy input dataset
-    init()
+    if not args.i:
+      make_fake_climate('atm.nc')
 
     # initiate PDD model
     pdd=PDDModel()
 
     # compute surface mass balance
-    pdd.nc('atm.nc', 'clim.nc')
+    pdd.nc(args.i or 'atm.nc', args.o)
 
