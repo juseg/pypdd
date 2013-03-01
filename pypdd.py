@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 
+"""A Python Positive Degree Day (PDD) model for glacier surface mass balance"""
+
 import numpy as np
+
+# Defatult model parameters
+
+default_pdd_factor_snow = 0.003
+default_pdd_factor_ice  = 0.008
+default_pdd_refreeze    = 0.6
+default_pdd_std_dev     = 5.
+default_temp_snow       = 0.
+default_temp_rain       = 2.
 
 # PDD model class
 
@@ -8,12 +19,12 @@ class PDDModel():
   """A positive degree-day model for glacier surface mass balance"""
 
   def __init__(self,
-    pdd_factor_snow = 0.003,
-    pdd_factor_ice  = 0.008,
-    pdd_refreeze    = 0.6,
-    pdd_std_dev     = 5,
-    temp_snow       = 0,
-    temp_rain       = 2):
+    pdd_factor_snow = default_pdd_factor_snow,
+    pdd_factor_ice  = default_pdd_factor_ice,
+    pdd_refreeze    = default_pdd_refreeze,
+    pdd_std_dev     = default_pdd_std_dev,
+    temp_snow       = default_temp_snow,
+    temp_rain       = default_temp_rain):
     """Initiate PDD model with given parameters"""
     
     # set pdd model parameters
@@ -127,9 +138,30 @@ def make_fake_climate(filename):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Compute glacier surface mass balance from temperature and precipitation')
-    parser.add_argument('-i', help='input file')
-    parser.add_argument('-o', help='output file', default='smb.nc')
+    parser = argparse.ArgumentParser(description='A Python Positive Degree Day (PDD) model for glacier surface mass balance')
+    parser.add_argument('-i', '--input',
+      help='input file')
+    parser.add_argument('-o', '--output',
+      help='output file',
+      default='smb.nc')
+    parser.add_argument('--pdd-factor-snow', type=float,
+      help='PDD factor for snow',
+      default=default_pdd_factor_snow)
+    parser.add_argument('--pdd-factor-ice', type=float,
+      help='PDD factor for ice',
+      default=default_pdd_factor_ice)
+    parser.add_argument('--pdd-refreeze', type=float,
+      help='PDD refreezing fraction',
+      default=default_pdd_refreeze)
+    parser.add_argument('--pdd-std-dev', type=float,
+      help='Unimplemented yet',
+      default=default_pdd_std_dev)
+    parser.add_argument('--temp-snow', type=float,
+      help='Temperature at which all precip is snow',
+      default=default_temp_snow)
+    parser.add_argument('--temp-rain', type=float,
+      help='Temperature at which all precip is rain',
+      default=default_temp_rain)
     args = parser.parse_args()
 
     # prepare dummy input dataset
@@ -137,7 +169,13 @@ if __name__ == "__main__":
       make_fake_climate('atm.nc')
 
     # initiate PDD model
-    pdd=PDDModel()
+    pdd=PDDModel(
+      pdd_factor_snow = args.pdd_factor_snow,
+      pdd_factor_ice  = args.pdd_factor_ice,
+      pdd_refreeze    = args.pdd_refreeze,
+      pdd_std_dev     = args.pdd_std_dev,
+      temp_snow       = args.temp_snow,
+      temp_rain       = args.temp_rain)
 
     # compute surface mass balance
     pdd.nc(args.i or 'atm.nc', args.o)
