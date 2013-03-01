@@ -68,6 +68,10 @@ class PDDModel():
     temp = i.variables['air_temp'][:]
     prec = i.variables['precipitation'][:]
 
+    # convert to degC
+    # TODO: handle unit conversion better
+    if i.variables['air_temp'].units == 'K': temp = temp - 273.15
+
     # create dimensions
     o.createDimension('x', len(i.dimensions['x']))
     o.createDimension('y', len(i.dimensions['y']))
