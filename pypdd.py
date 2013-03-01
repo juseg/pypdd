@@ -35,13 +35,14 @@ class PDDModel():
     """Compute positive degree days from temperature time series"""
     return sum(np.greater(temp,0)*temp)*365.242198781/12
 
-  def snowfrac(self, temp):
-    """Compute snow fraction from temperature"""
-    reduced_temp = (self.temp_rain-temp) / (self.temp_rain-self.temp_snow)
-    return np.clip(reduced_temp, 0, 1)
-
   def snow(self, temp, prec):
-    """Compute snow fall from temperature and precipitation"""
+    """Compute snow precipitation from temperature and precipitation"""
+
+    # compute snow fraction as a function of temperature
+    reduced_temp = (self.temp_rain-temp) / (self.temp_rain-self.temp_snow)
+    snowfrac     = np.clip(reduced_temp, 0, 1)
+
+    # return total snow precipitation
     return sum(self.snowfrac(temp)*prec)
 
   def smb(self, snow, pdd):
