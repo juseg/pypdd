@@ -54,7 +54,7 @@ class PDDModel():
     snowfrac     = np.clip(reduced_temp, 0, 1)
 
     # return total snow precipitation
-    return sum(self.snowfrac(temp)*prec)
+    return sum(snowfrac*prec)/12
 
   def smb(self, snow, pdd):
     """Compute surface mass balance from snow precipitation and pdd sum"""
@@ -109,27 +109,56 @@ def make_fake_climate(filename):
 
     # create dimensions
     tdim = nc.createDimension('time', 12)
-    xdim = nc.createDimension('x', 8)
-    ydim = nc.createDimension('y', 8)
+    xdim = nc.createDimension('x', 21)
+    ydim = nc.createDimension('y', 21)
+    ndim = nc.createDimension('nv', 2)
 
-    # prepare coordinate arrays
-    x = range(len(xdim))
-    y = range(len(ydim))
-    t = range(len(tdim))
-    (xx, yy) = np.meshgrid(x, y)
+    # create x coordinate variable
+    xvar = nc.createVariable('x', 'f4', ('x',))
+    xvar.axis          = 'X'
+    xvar.long_name     = 'x-coordinate in Cartesian system'
+    xvar.standard_name = 'projection_x_coordinate'
+    xvar.units         = 'm'
+
+    # create y coordinate variable
+    yvar = nc.createVariable('y', 'f4', ('y',))
+    yvar.axis          = 'Y'
+    yvar.long_name     = 'y-coordinate in Cartesian system'
+    yvar.standard_name = 'projection_y_coordinate'
+    yvar.units         = 'm'
+    
+    # create time coordinate and time bounds
+    tvar = nc.createVariable('time', 'f4', ('time',))
+    tvar.axis          = 'T'
+    tvar.long_name     = 'time'
+    tvar.standard_name = 'time'
+    tvar.units         = 'month'
+    tvar.bounds        = 'time_bounds'
+    tboundsvar = nc.createVariable('time_bounds', 'f4', ('time','nv'))
 
     # create air temperature variable
     temp = nc.createVariable('air_temp', 'f4', ('time', 'x', 'y'))
-    temp.units = 'degC'
+    temp.long_name = 'near-surface air temperature'
+    temp.units     = 'degC'
 
     # create precipitation variable
     prec = nc.createVariable('precipitation', 'f4', ('time', 'x', 'y'))
-    prec.units = "m yr-1"
+    prec.long_name = 'ice-equivalent precipitation rate'
+    prec.units     = "m yr-1"
+
+    # assign coordinate values
+    lx = ly = 1000
+    xvar[:] = np.linspace(-lx, lx, len(xdim))
+    yvar[:] = np.linspace(-ly, ly, len(ydim))
+    tvar[:] = np.arange(len(tdim))
+    tboundsvar[:,0] = tvar[:]
+    tboundsvar[:,1] = tvar[:]+1
 
     # assign temperature and precipitation values
-    for i in t:
-      temp[i] = xx - 10 * cos(i*2*pi/12)
-      prec[i] = yy * (1 - cos(i*2*pi/12))/4
+    (xx, yy) = np.meshgrid(xvar[:], yvar[:])
+    for i in range(len(tdim)):
+      temp[i] = -10 * (yy/ly + cos(i*2*pi/12))
+      prec[i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
 
     # close netcdf file
     nc.close()
@@ -165,7 +194,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # prepare dummy input dataset
-    if not args.i:
+    if not args.input:
       make_fake_climate('atm.nc')
 
     # initiate PDD model
@@ -178,5 +207,5 @@ if __name__ == "__main__":
       temp_rain       = args.temp_rain)
 
     # compute surface mass balance
-    pdd.nc(args.i or 'atm.nc', args.o)
+    pdd.nc(args.input or 'atm.nc', args.output)
 
