@@ -3,12 +3,12 @@ PyPDD
 
 A Python Positive Degree Day (PDD) model for glacier surface mass-balance.
 
-*Using an algorythm inspired by `PISM`_*
+Using an algorythm inspired by `PISM`_
 
 The PDDModel class
 ------------------
 
-*Requires `NumPy`_*
+**Requires:** `NumPy`_
 
 A PDD model instance can be created by::
 
@@ -26,7 +26,7 @@ will return an array of dimension ``(x, y)`` containing the calculated mass bala
 NetCDF interface
 ----------------
 
-*Requires `NetCDF4-Python`_*
+**Requires:** `NetCDF4-Python`_
 
 A NetCDF operator can be called by::
 
@@ -44,7 +44,7 @@ If no input file is provided, an artificial climate will be generated under ``at
 GRASS GIS interface
 -------------------
 
-*Requires `GRASS GIS`_*
+**Requires:** `GRASS GIS`_
 
 To run a PDD model in GRASS enter::
 
