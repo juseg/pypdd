@@ -4,7 +4,8 @@
 
 import numpy as np
 
-# Defatult model parameters
+# Default model parameters
+# ------------------------
 
 default_pdd_factor_snow = 0.003
 default_pdd_factor_ice  = 0.008
@@ -14,9 +15,10 @@ default_temp_snow       = 0.
 default_temp_rain       = 2.
 
 # PDD model class
+# ---------------
 
 class PDDModel():
-  """A positive degree-day model for glacier surface mass balance"""
+  """A Positive Degree Day (PDD) model for glacier surface mass balance"""
 
   def __init__(self,
     pdd_factor_snow = default_pdd_factor_snow,
@@ -25,7 +27,7 @@ class PDDModel():
     pdd_std_dev     = default_pdd_std_dev,
     temp_snow       = default_temp_snow,
     temp_rain       = default_temp_rain):
-    """Initiate PDD model with given parameters"""
+    """Initiate a PDD model with given parameters"""
     
     # set pdd model parameters
     self.pdd_factor_snow = pdd_factor_snow
@@ -36,7 +38,7 @@ class PDDModel():
     self.temp_rain       = temp_rain
 
   def __call__(self, temp, prec):
-    """Compute surface mass balance from temperature and precipitation"""
+    """Run the PDD model"""
     pdd  = self.pdd(temp)
     snow = self.snow(temp, prec)
     smb  = self.smb(snow, pdd)
@@ -44,7 +46,7 @@ class PDDModel():
 
   def pdd(self, temp):
     """Compute positive degree days from temperature time series"""
-    return sum(np.greater(temp,0)*temp)*365.242198781/12
+    return np.sum(np.greater(temp,0)*temp, axis=0)*365.242198781/12
 
   def snow(self, temp, prec):
     """Compute snow precipitation from temperature and precipitation"""
@@ -54,27 +56,27 @@ class PDDModel():
     snowfrac     = np.clip(reduced_temp, 0, 1)
 
     # return total snow precipitation
-    return sum(snowfrac*prec)/12
+    return np.sum(snowfrac*prec, axis=0)/12
 
   def smb(self, snow, pdd):
     """Compute surface mass balance from snow precipitation and pdd sum"""
 
-    # compute snow accumulation after melt
+    # compute potential snow accumulation
     snow_acc = snow - pdd * self.pdd_factor_snow
 
     # if positive, return accumulated snow
-    # if negative, compute refreezing and ice melt
+    # if negative, return refrozen ice minus ice melt
     return np.where(snow_acc > 0, snow_acc, snow*self.pdd_refreeze
       + snow_acc*self.pdd_factor_ice/self.pdd_factor_snow)
 
-  def nc(self, i_file, o_file):
-    """NetCDF interface"""
+  def nco(self, input_file, output_file):
+    """NetCDF operator"""
 
     from netCDF4 import Dataset as NC
 
     # open netcdf files
-    i = NC(i_file, 'r')
-    o = NC(o_file, 'w')
+    i = NC(input_file, 'r')
+    o = NC(output_file, 'w')
 
     # read input data
     temp = i.variables['air_temp'][:]
@@ -88,15 +90,19 @@ class PDDModel():
     o.createDimension('x', len(i.dimensions['x']))
     o.createDimension('y', len(i.dimensions['y']))
 
-    # create variables
+    # create surface mass balance variable
     smbvar = o.createVariable('smb', 'f4', ('x', 'y'))
+    smbvar.long_name     = 'instantaneous ice-equivalent surface mass balance (accumulation/ablation) rate'
+    smbvar.standard_name = 'land_ice_surface_specific_mass_balance'
+    smbvar.units         = 'm yr-1'
     smbvar[:] = self(temp, prec)
 
     # close netcdf files
     i.close()
     o.close()
 
-# netCDF climate initializer
+# Command-line interface
+# ----------------------
 
 def make_fake_climate(filename):
     """Create an artificial temperature and precipitation file"""
@@ -163,8 +169,6 @@ def make_fake_climate(filename):
     # close netcdf file
     nc.close()
 
-# Called at execution
-
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='A Python Positive Degree Day (PDD) model for glacier surface mass balance')
@@ -193,7 +197,7 @@ if __name__ == "__main__":
       default=default_temp_rain)
     args = parser.parse_args()
 
-    # prepare dummy input dataset
+    # if no input file was given, prepare a dummy one
     if not args.input:
       make_fake_climate('atm.nc')
 
@@ -207,5 +211,5 @@ if __name__ == "__main__":
       temp_rain       = args.temp_rain)
 
     # compute surface mass balance
-    pdd.nc(args.input or 'atm.nc', args.output)
+    pdd.nco(args.input or 'atm.nc', args.output)
 
