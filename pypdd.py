@@ -37,12 +37,15 @@ class PDDModel():
     self.temp_snow       = temp_snow
     self.temp_rain       = temp_rain
 
-  def __call__(self, temp, prec):
+  def __call__(self, temp, prec, big=False):
     """Run the PDD model"""
     pdd  = self.pdd(temp)
     snow = self.snow(temp, prec)
-    smb  = self.smb(snow, pdd)
-    return smb
+    (melt, runoff, smb)  = self.smb(snow, pdd)
+    if big:
+      return (pdd, snow, melt, runoff, smb)
+    else:
+      return smb
 
   def pdd(self, temp):
     """Compute positive degree days from temperature time series"""
@@ -70,7 +73,7 @@ class PDDModel():
     pot_snow_melt = ddf_snow * pdd
 
     # effective snow melt can't exceed amount of snow
-    snow_melt = np.max(snow, pot_snow_melt)
+    snow_melt = np.minimum(snow, pot_snow_melt)
 
     # ice melt is proportional to excess snow melt
     ice_melt = (pot_snow_melt - snow_melt) * ddf_ice/ddf_snow
@@ -79,9 +82,9 @@ class PDDModel():
     melt = snow_melt + ice_melt
     runoff = melt - refreeze * snow_melt
     smb = snow - runoff
-    return smb
+    return (melt, runoff, smb)
 
-  def nco(self, input_file, output_file):
+  def nco(self, input_file, output_file, big=False):
     """NetCDF operator"""
 
     from netCDF4 import Dataset as NC
@@ -103,11 +106,42 @@ class PDDModel():
     o.createDimension('y', len(i.dimensions['y']))
 
     # create surface mass balance variable
-    smbvar = o.createVariable('smb', 'f4', ('x', 'y'))
+    smbvar = o.createVariable('climatic_mass_balance', 'f4', ('x', 'y'))
     smbvar.long_name     = 'instantaneous ice-equivalent surface mass balance (accumulation/ablation) rate'
     smbvar.standard_name = 'land_ice_surface_specific_mass_balance'
     smbvar.units         = 'm yr-1'
-    smbvar[:] = self(temp, prec)
+
+    # create more variables for 'big' output
+    if big:
+
+      # create snow precipitation variable
+      pddvar = o.createVariable('pdd', 'f4', ('x', 'y'))
+      pddvar.long_name = 'number of positive degree days'
+      pddvar.units = 'degC day'
+
+      # create snow precipitation variable
+      snowvar = o.createVariable('saccum', 'f4', ('x', 'y'))
+      snowvar.long_name = 'instantaneous ice-equivalent surface accumulation rate (precipitation minus rain)'
+      snowvar.units = 'm yr-1'
+
+      # create melt variable
+      meltvar = o.createVariable('smelt', 'f4', ('x', 'y'))
+      meltvar.long_name = 'instantaneous ice-equivalent surface melt rate'
+      meltvar.units = 'm yr-1'
+
+      # create runoff variable
+      runoffvar = o.createVariable('srunoff', 'f4', ('x', 'y'))
+      runoffvar.long_name = 'instantaneous ice-equivalent surface meltwater runoff rate'
+      runoffvar.units = 'm yr-1'
+
+    # run PDD model
+    smb = self(temp, prec, big)
+
+    # assign variables values
+    if big:
+      (pddvar[:], snowvar[:], meltvar[:], runoffvar[:], smbvar[:]) = smb
+    else:
+      smbvar[:] = smb
 
     # close netcdf files
     i.close()
@@ -189,6 +223,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output',
       help='output file',
       default='smb.nc')
+    parser.add_argument('-b', '--big',
+      help='produce big output (more variables)',
+      action='store_true')
     parser.add_argument('--pdd-factor-snow', type=float,
       help='PDD factor for snow',
       default=default_pdd_factor_snow)
@@ -223,5 +260,5 @@ if __name__ == "__main__":
       temp_rain       = args.temp_rain)
 
     # compute surface mass balance
-    pdd.nco(args.input or 'atm.nc', args.output)
+    pdd.nco(args.input or 'atm.nc', args.output, big=args.big)
 
