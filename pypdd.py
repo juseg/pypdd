@@ -61,13 +61,25 @@ class PDDModel():
   def smb(self, snow, pdd):
     """Compute surface mass balance from snow precipitation and pdd sum"""
 
-    # compute potential snow accumulation
-    snow_acc = snow - pdd * self.pdd_factor_snow
+    # parse model parameters for readability
+    ddf_snow = self.pdd_factor_snow
+    ddf_ice  = self.pdd_factor_ice
+    refreeze = self.pdd_refreeze
 
-    # if positive, return accumulated snow
-    # if negative, return refrozen ice minus ice melt
-    return np.where(snow_acc > 0, snow_acc, snow*self.pdd_refreeze
-      + snow_acc*self.pdd_factor_ice/self.pdd_factor_snow)
+    # compute a potential snow melt
+    pot_snow_melt = ddf_snow * pdd
+
+    # effective snow melt can't exceed amount of snow
+    snow_melt = np.max(snow, pot_snow_melt)
+
+    # ice melt is proportional to excess snow melt
+    ice_melt = (pot_snow_melt - snow_melt) * ddf_ice/ddf_snow
+
+    # compute total melt, runoff and mass balance
+    melt = snow_melt + ice_melt
+    runoff = melt - refreeze * snow_melt
+    smb = snow - runoff
+    return smb
 
   def nco(self, input_file, output_file):
     """NetCDF operator"""
