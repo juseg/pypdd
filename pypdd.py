@@ -43,7 +43,7 @@ class PDDModel():
     snow = self.snow(temp, prec)
     (melt, runoff, smb)  = self.smb(snow, pdd)
     if big:
-      return (pdd, snow, melt, runoff, smb)
+      return dict(pdd=pdd, snow=snow, melt=melt, runoff=runoff, smb=smb)
     else:
       return smb
 
@@ -139,7 +139,11 @@ class PDDModel():
 
     # assign variables values
     if big:
-      (pddvar[:], snowvar[:], meltvar[:], runoffvar[:], smbvar[:]) = smb
+      pddvar[:]    = smb['pdd']
+      snowvar[:]   = smb['snow']
+      meltvar[:]   = smb['melt']
+      runoffvar[:] = smb['runoff']
+      smbvar[:]    = smb['smb']
     else:
       smbvar[:] = smb
 
