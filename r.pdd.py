@@ -47,11 +47,39 @@
 #% multiple: yes
 #%end
 #%option
+#% key: pdd
+#% type: string
+#% gisprompt: new,cell,raster
+#% description: Name for output number of positive degree days map
+#% required: no
+#%end
+#%option
+#% key: snow
+#% type: string
+#% gisprompt: new,cell,raster
+#% description: Name for output snow precipitation map
+#% required: no
+#%end
+#%option
+#% key: melt
+#% type: string
+#% gisprompt: new,cell,raster
+#% description: Name for output surface melt map
+#% required: no
+#%end
+#%option
+#% key: runoff
+#% type: string
+#% gisprompt: new,cell,raster
+#% description: Name for output surface runoff map
+#% required: no
+#%end
+#%option
 #% key: smb
 #% type: string
 #% gisprompt: new,cell,raster
 #% description: Name for output surface mass balance raster map
-#% required: yes
+#% required: no
 #%end
 
 import numpy as np                    # scientific module Numpy [1]
@@ -67,6 +95,10 @@ def main():
     # parse arguments
     temp_maps = options['temp'].split(',')
     prec_maps = options['prec'].split(',')
+    pdd_map   = options['pdd']
+    snow_map  = options['snow']
+    melt_map  = options['melt']
+    runoff_map= options['runoff']
     smb_map   = options['smb']
 
     # read temperature maps
@@ -88,12 +120,14 @@ def main():
     temp = np.array(temp)
     prec = np.array(prec)
     pdd = PDDModel()
-    smb = garray.array()
-    smb[:] = pdd(temp,prec)
+    smb = pdd(temp, prec, big=True)
 
-    # write surface mass balance map
-    grass.info('writing surface mass balance map...')
-    smb.write(smb_map)
+    # write output maps
+    grass.info('writing output maps...')
+    for key, value in smb.iteritems():
+      if options[key]:
+        a = garray.array()
+        a[:] = value
 
 ### Main program ###
 
