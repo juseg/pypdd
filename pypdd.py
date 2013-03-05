@@ -49,7 +49,24 @@ class PDDModel():
 
   def pdd(self, temp):
     """Compute positive degree days from temperature time series"""
-    return np.sum(np.greater(temp,0)*temp, axis=0)*365.242198781/12
+
+    from math import exp, pi, sqrt
+    from scipy.special import erfc
+
+    # parse standard deviation of temperatures for readability
+    stdev = self.pdd_std_dev
+
+    # if stdev is not zero, use the Calov and Greve (2005) formula
+    if stdev != 0:
+      teff = stdev / sqrt(2*pi) * np.exp(-temp**2/2/stdev**2) +\
+             temp/2 * erfc(-temp/sqrt(2)/stdev)
+
+    # else use positive part of temperatures
+    else:
+      teff = np.greater(temp,0)*temp
+
+    # sum over the year
+    return np.sum(teff, axis=0)*365.242198781/12
 
   def snow(self, temp, prec):
     """Compute snow precipitation from temperature and precipitation"""
@@ -237,10 +254,10 @@ if __name__ == "__main__":
       help='PDD factor for ice',
       default=default_pdd_factor_ice)
     parser.add_argument('--pdd-refreeze', type=float,
-      help='PDD refreezing fraction',
+      help='PDD model refreezing fraction',
       default=default_pdd_refreeze)
     parser.add_argument('--pdd-std-dev', type=float,
-      help='Unimplemented yet',
+      help='Standard deviation of temperature',
       default=default_pdd_std_dev)
     parser.add_argument('--temp-snow', type=float,
       help='Temperature at which all precip is snow',
