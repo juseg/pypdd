@@ -63,15 +63,15 @@ class PDDModel():
     dx = 1./(self.interpolate_n-1)
 
     if rule == 'rectangle':
-      return np.sum(a, axis=0)*dx
+      return np.sum(a[:-1], axis=0)*dx
 
     if rule == 'trapeze':
       from scipy.integrate import trapz
-      return trapz(np.append(a, [a[0]], axis=0), axis=0, dx=dx)
+      return trapz(a, axis=0, dx=dx)
 
     if rule == 'simpson':
       from scipy.integrate import simps
-      return simps(np.append(a, [a[0]], axis=0), axis=0, dx=dx)
+      return simps(a, axis=0, dx=dx)
 
   def _interpolate(self, a):
     """Interpolate an array through one year"""
