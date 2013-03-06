@@ -280,31 +280,33 @@ def make_fake_climate(filename):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='A Python Positive Degree Day (PDD) model for glacier surface mass balance')
-    parser.add_argument('-i', '--input',
+    parser = argparse.ArgumentParser(
+      description='''A Python Positive Degree Day (PDD) model
+        for glacier surface mass balance''',
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-i', '--input', metavar='input.nc',
       help='input file')
-    parser.add_argument('-o', '--output',
+    parser.add_argument('-o', '--output', metavar='output.nc',
       help='output file',
       default='smb.nc')
-    parser.add_argument('-b', '--big',
-      help='produce big output (more variables)',
-      action='store_true')
-    parser.add_argument('--pdd-factor-snow', type=float,
+    parser.add_argument('-b', '--big', action='store_true',
+      help='produce big output (more variables)')
+    parser.add_argument('--pdd-factor-snow', metavar='F', type=float,
       help='PDD factor for snow',
       default=default_pdd_factor_snow)
-    parser.add_argument('--pdd-factor-ice', type=float,
+    parser.add_argument('--pdd-factor-ice', metavar='F', type=float,
       help='PDD factor for ice',
       default=default_pdd_factor_ice)
-    parser.add_argument('--pdd-refreeze', type=float,
+    parser.add_argument('--pdd-refreeze', metavar='R', type=float,
       help='PDD model refreezing fraction',
       default=default_pdd_refreeze)
-    parser.add_argument('--pdd-std-dev', type=float,
+    parser.add_argument('--pdd-std-dev', metavar='S', type=float,
       help='Standard deviation of temperature',
       default=default_pdd_std_dev)
-    parser.add_argument('--temp-snow', type=float,
+    parser.add_argument('--temp-snow', metavar='T', type=float,
       help='Temperature at which all precip is snow',
       default=default_temp_snow)
-    parser.add_argument('--temp-rain', type=float,
+    parser.add_argument('--temp-rain', metavar='T', type=float,
       help='Temperature at which all precip is rain',
       default=default_temp_rain)
     parser.add_argument('--integrate-rule',
@@ -314,9 +316,9 @@ if __name__ == "__main__":
     parser.add_argument('--interpolate-rule',
       help='Rule for interpolations',
       default = default_interpolate_rule,
-      choices = ('linear','nearest', 'zero', 'slinear', 'quadratic', 'cubic'))
-    parser.add_argument('--interpolate-n',
-      help='Number of points used in interpolations',
+      choices = ('linear','nearest','zero','slinear','quadratic','cubic'))
+    parser.add_argument('--interpolate-n', metavar='N',
+      help='Number of points used in interpolations.',
       default = default_interpolate_n)
     args = parser.parse_args()
 
