@@ -224,8 +224,8 @@ def make_fake_climate(filename):
 
     # create dimensions
     tdim = nc.createDimension('time', 12)
-    xdim = nc.createDimension('x', 21)
-    ydim = nc.createDimension('y', 21)
+    xdim = nc.createDimension('x', 201)
+    ydim = nc.createDimension('y', 201)
     ndim = nc.createDimension('nv', 2)
 
     # create x coordinate variable
@@ -272,7 +272,7 @@ def make_fake_climate(filename):
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
     for i in range(len(tdim)):
-      temp[i] = -10 * (yy/ly + cos(i*2*pi/12))
+      temp[i] = -10 * yy/ly - 5 * cos(i*2*pi/12)
       prec[i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
 
     # close netcdf file
