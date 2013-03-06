@@ -13,6 +13,9 @@ default_pdd_refreeze    = 0.6
 default_pdd_std_dev     = 5.
 default_temp_snow       = 0.
 default_temp_rain       = 2.
+default_integrate_rule  = 'rectangle'
+default_interpolate_rule= 'linear'
+default_interpolate_n   = 53
 
 # PDD model class
 # ---------------
@@ -26,7 +29,10 @@ class PDDModel():
     pdd_refreeze    = default_pdd_refreeze,
     pdd_std_dev     = default_pdd_std_dev,
     temp_snow       = default_temp_snow,
-    temp_rain       = default_temp_rain):
+    temp_rain       = default_temp_rain,
+    integrate_rule  = default_integrate_rule,
+    interpolate_rule= default_interpolate_rule,
+    interpolate_n   = default_interpolate_n):
     """Initiate a PDD model with given parameters"""
     
     # set pdd model parameters
@@ -36,6 +42,9 @@ class PDDModel():
     self.pdd_std_dev     = pdd_std_dev
     self.temp_snow       = temp_snow
     self.temp_rain       = temp_rain
+    self.integrate_rule  = integrate_rule
+    self.interpolate_rule= interpolate_rule
+    self.interpolate_n   = interpolate_n
 
   def __call__(self, temp, prec, big=False):
     """Run the PDD model"""
@@ -47,6 +56,34 @@ class PDDModel():
     else:
       return smb
 
+  def _integrate(self, a):
+    """Integrate an array over one year"""
+
+    rule = self.integrate_rule
+    dx = 1./(self.interpolate_n-1)
+
+    if rule == 'rectangle':
+      return np.sum(a, axis=0)*dx
+
+    if rule == 'trapeze':
+      from scipy.integrate import trapz
+      return trapz(np.append(a, [a[0]], axis=0), axis=0, dx=dx)
+
+    if rule == 'simpson':
+      from scipy.integrate import simps
+      return simps(np.append(a, [a[0]], axis=0), axis=0, dx=dx)
+
+  def _interpolate(self, a):
+    """Interpolate an array through one year"""
+
+    from scipy.interpolate import interp1d
+
+    x = np.linspace(0, 1, 13)
+    y = np.append(a, [a[0]], axis=0)
+    newx = np.linspace(0, 1, self.interpolate_n)
+
+    return interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
+
   def pdd(self, temp):
     """Compute positive degree days from temperature time series"""
 
@@ -54,29 +91,34 @@ class PDDModel():
     from scipy.special import erfc
 
     # parse standard deviation of temperatures for readability
-    stdev = self.pdd_std_dev
+    sigma = self.pdd_std_dev
 
-    # if stdev is not zero, use the Calov and Greve (2005) formula
-    if stdev != 0:
-      teff = stdev / sqrt(2*pi) * np.exp(-temp**2/2/stdev**2) +\
-             temp/2 * erfc(-temp/sqrt(2)/stdev)
+    # if sigma is not zero, use the Calov and Greve (2005) formula
+    if sigma != 0:
+      z = temp / (sqrt(2)*sigma)
+      teff = sigma / sqrt(2*pi) * np.exp(-z**2) + temp/2 * erfc(-z)
 
     # else use positive part of temperatures
     else:
       teff = np.greater(temp,0)*temp
 
-    # sum over the year
-    return np.sum(teff, axis=0)*365.242198781/12
+    # interpolate and integrate
+    newteff = self._interpolate(teff)
+    return self._integrate(newteff)*365.242198781
 
   def snow(self, temp, prec):
     """Compute snow precipitation from temperature and precipitation"""
 
+    # interpolate temperature and precipitation
+    newtemp = self._interpolate(temp)
+    newprec = self._interpolate(prec)
+
     # compute snow fraction as a function of temperature
-    reduced_temp = (self.temp_rain-temp) / (self.temp_rain-self.temp_snow)
+    reduced_temp = (self.temp_rain-newtemp)/(self.temp_rain-self.temp_snow)
     snowfrac     = np.clip(reduced_temp, 0, 1)
 
     # return total snow precipitation
-    return np.sum(snowfrac*prec, axis=0)/12
+    return self._integrate(snowfrac*newprec)
 
   def smb(self, snow, pdd):
     """Compute surface mass balance from snow precipitation and pdd sum"""
@@ -265,6 +307,17 @@ if __name__ == "__main__":
     parser.add_argument('--temp-rain', type=float,
       help='Temperature at which all precip is rain',
       default=default_temp_rain)
+    parser.add_argument('--integrate-rule',
+      help='Rule for integrations',
+      default = default_integrate_rule,
+      choices = ('rectangle', 'trapeze', 'simpson'))
+    parser.add_argument('--interpolate-rule',
+      help='Rule for interpolations',
+      default = default_interpolate_rule,
+      choices = ('linear','nearest', 'zero', 'slinear', 'quadratic', 'cubic'))
+    parser.add_argument('--interpolate-n',
+      help='Number of points used in interpolations',
+      default = default_interpolate_n)
     args = parser.parse_args()
 
     # if no input file was given, prepare a dummy one
