@@ -93,18 +93,20 @@ class PDDModel():
     # parse standard deviation of temperatures for readability
     sigma = self.pdd_std_dev
 
+    # interpolate temperature series
+    newtemp = self._interpolate(temp)
+
     # if sigma is not zero, use the Calov and Greve (2005) formula
     if sigma != 0:
-      z = temp / (sqrt(2)*sigma)
-      teff = sigma / sqrt(2*pi) * np.exp(-z**2) + temp/2 * erfc(-z)
+      z = newtemp / (sqrt(2)*sigma)
+      teff = sigma / sqrt(2*pi) * np.exp(-z**2) + newtemp/2 * erfc(-z)
 
     # else use positive part of temperatures
     else:
-      teff = np.greater(temp,0)*temp
+      teff = np.greater(newtemp,0)*newtemp
 
     # interpolate and integrate
-    newteff = self._interpolate(teff)
-    return self._integrate(newteff)*365.242198781
+    return self._integrate(teff)*365.242198781
 
   def snow(self, temp, prec):
     """Compute snow precipitation from temperature and precipitation"""
