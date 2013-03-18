@@ -46,9 +46,9 @@ class PDDModel():
     self.interpolate_rule= interpolate_rule
     self.interpolate_n   = interpolate_n
 
-  def __call__(self, temp, prec, big=False):
+  def __call__(self, temp, prec, stdv=None, big=False):
     """Run the PDD model"""
-    pdd  = self.pdd(temp)
+    pdd  = self.pdd(temp, stdv=stdv)
     snow = self.snow(temp, prec)
     (melt, runoff, smb)  = self.smb(snow, pdd)
     if big:
@@ -84,20 +84,23 @@ class PDDModel():
 
     return interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
 
-  def pdd(self, temp):
+  def pdd(self, temp, stdv=None):
     """Compute positive degree days from temperature time series"""
 
     from math import exp, pi, sqrt
     from scipy.special import erfc
 
     # parse standard deviation of temperatures for readability
-    sigma = self.pdd_std_dev
+    if stdv is not None:
+      sigma = self._interpolate(stdv)
+    else:
+      sigma = self.pdd_std_dev # array or float
 
     # interpolate temperature series
     newtemp = self._interpolate(temp)
 
     # if sigma is not zero, use the Calov and Greve (2005) formula
-    if sigma != 0:
+    if stdv is not None or sigma != 0:
       z = newtemp / (sqrt(2)*sigma)
       teff = sigma / sqrt(2*pi) * np.exp(-z**2) + newtemp/2 * erfc(-z)
 
@@ -157,17 +160,23 @@ class PDDModel():
     # read input data
     temp = i.variables['air_temp'][:]
     prec = i.variables['precipitation'][:]
+    try: stdv = i.variables['air_temp_stdev'][:]
+    except: stdv = None
 
     # convert to degC
     # TODO: handle unit conversion better
     if i.variables['air_temp'].units == 'K': temp = temp - 273.15
 
-    # create dimensions
-    o.createDimension('x', len(i.dimensions['x']))
-    o.createDimension('y', len(i.dimensions['y']))
+    # get dimensions tuple from temp variable
+    xydim = i.variables['air_temp'].dimensions[1:]
+
+    # copy dimensions
+    for dimname,dim in i.dimensions.iteritems():
+      dimlen = None if dim.isunlimited() else len(dim)
+      o.createDimension(dimname,dimlen)
 
     # create surface mass balance variable
-    smbvar = o.createVariable('climatic_mass_balance', 'f4', ('x', 'y'))
+    smbvar = o.createVariable('climatic_mass_balance', 'f4', xydim)
     smbvar.long_name     = 'instantaneous ice-equivalent surface mass balance (accumulation/ablation) rate'
     smbvar.standard_name = 'land_ice_surface_specific_mass_balance'
     smbvar.units         = 'm yr-1'
@@ -176,27 +185,27 @@ class PDDModel():
     if big:
 
       # create snow precipitation variable
-      pddvar = o.createVariable('pdd', 'f4', ('x', 'y'))
+      pddvar = o.createVariable('pdd', 'f4', xydim)
       pddvar.long_name = 'number of positive degree days'
       pddvar.units = 'degC day'
 
       # create snow precipitation variable
-      snowvar = o.createVariable('saccum', 'f4', ('x', 'y'))
+      snowvar = o.createVariable('saccum', 'f4', xydim)
       snowvar.long_name = 'instantaneous ice-equivalent surface accumulation rate (precipitation minus rain)'
       snowvar.units = 'm yr-1'
 
       # create melt variable
-      meltvar = o.createVariable('smelt', 'f4', ('x', 'y'))
+      meltvar = o.createVariable('smelt', 'f4', xydim)
       meltvar.long_name = 'instantaneous ice-equivalent surface melt rate'
       meltvar.units = 'm yr-1'
 
       # create runoff variable
-      runoffvar = o.createVariable('srunoff', 'f4', ('x', 'y'))
+      runoffvar = o.createVariable('srunoff', 'f4', xydim)
       runoffvar.long_name = 'instantaneous ice-equivalent surface meltwater runoff rate'
       runoffvar.units = 'm yr-1'
 
     # run PDD model
-    smb = self(temp, prec, big)
+    smb = self(temp, prec, stdv=stdv, big=big)
 
     # assign variables values
     if big:
