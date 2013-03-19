@@ -148,20 +148,22 @@ class PDDModel():
     smb = snow - runoff
     return (melt, runoff, smb)
 
-  def nco(self, input_file, output_file, big=False):
+  def nco(self, input_file, output_file, big=False, force_cst_stdv=False):
     """NetCDF operator"""
 
     from netCDF4 import Dataset as NC
 
     # open netcdf files
     i = NC(input_file, 'r')
-    o = NC(output_file, 'w')
+    o = NC(output_file, 'w', format='NETCDF3_CLASSIC')
 
     # read input data
     temp = i.variables['air_temp'][:]
     prec = i.variables['precipitation'][:]
-    try: stdv = i.variables['air_temp_stdev'][:]
-    except: stdv = None
+    if force_cst_stdv or 'air_temp_stdev' not in i.variables:
+      stdv = None
+    else:
+      stdv = i.variables['air_temp_stdev'][:]
 
     # convert to degC
     # TODO: handle unit conversion better
@@ -312,8 +314,7 @@ if __name__ == "__main__":
       help='PDD model refreezing fraction',
       default=default_pdd_refreeze)
     parser.add_argument('--pdd-std-dev', metavar='S', type=float,
-      help='Standard deviation of temperature',
-      default=default_pdd_std_dev)
+      help='Use constant standard deviation of temperature')
     parser.add_argument('--temp-snow', metavar='T', type=float,
       help='Temperature at which all precip is snow',
       default=default_temp_snow)
@@ -347,5 +348,6 @@ if __name__ == "__main__":
       temp_rain       = args.temp_rain)
 
     # compute surface mass balance
-    pdd.nco(args.input or 'atm.nc', args.output, big=args.big)
+    pdd.nco(args.input or 'atm.nc', args.output, big=args.big,
+      force_cst_stdv=(args.pdd_std_dev is not None))
 
