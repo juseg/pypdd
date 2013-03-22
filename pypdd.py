@@ -177,6 +177,14 @@ class PDDModel():
       dimlen = None if dim.isunlimited() else len(dim)
       o.createDimension(dimname,dimlen)
 
+    # copy coordinates
+    for varname,ivar in i.variables.iteritems():
+      if varname in i.dimensions:
+        ovar = o.createVariable(varname, ivar.dtype, ivar.dimensions)
+        for attname in ivar.ncattrs():
+          setattr(ovar,attname,getattr(ivar,attname))
+        ovar[:] = ivar[:]
+
     # create surface mass balance variable
     smbvar = o.createVariable('climatic_mass_balance', 'f4', xydim)
     smbvar.long_name     = 'instantaneous ice-equivalent surface mass balance (accumulation/ablation) rate'
