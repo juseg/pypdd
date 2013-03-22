@@ -10,7 +10,6 @@ import numpy as np
 default_pdd_factor_snow = 0.003
 default_pdd_factor_ice  = 0.008
 default_pdd_refreeze    = 0.6
-default_pdd_std_dev     = 5.
 default_temp_snow       = 0.
 default_temp_rain       = 2.
 default_integrate_rule  = 'rectangle'
@@ -27,7 +26,6 @@ class PDDModel():
     pdd_factor_snow = default_pdd_factor_snow,
     pdd_factor_ice  = default_pdd_factor_ice,
     pdd_refreeze    = default_pdd_refreeze,
-    pdd_std_dev     = default_pdd_std_dev,
     temp_snow       = default_temp_snow,
     temp_rain       = default_temp_rain,
     integrate_rule  = default_integrate_rule,
@@ -39,14 +37,13 @@ class PDDModel():
     self.pdd_factor_snow = pdd_factor_snow
     self.pdd_factor_ice  = pdd_factor_ice
     self.pdd_refreeze    = pdd_refreeze
-    self.pdd_std_dev     = pdd_std_dev
     self.temp_snow       = temp_snow
     self.temp_rain       = temp_rain
     self.integrate_rule  = integrate_rule
     self.interpolate_rule= interpolate_rule
     self.interpolate_n   = interpolate_n
 
-  def __call__(self, temp, prec, stdv=None, big=False):
+  def __call__(self, temp, prec, stdv=0, big=False):
     """Run the PDD model"""
     pdd  = self.pdd(temp, stdv=stdv)
     snow = self.snow(temp, prec)
@@ -84,29 +81,27 @@ class PDDModel():
 
     return interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
 
-  def pdd(self, temp, stdv=None):
+  def pdd(self, temp, stdv=0):
     """Compute positive degree days from temperature time series"""
 
     from math import exp, pi, sqrt
     from scipy.special import erfc
 
-    # parse standard deviation of temperatures for readability
-    if stdv is not None:
-      sigma = self._interpolate(stdv)
-    else:
-      sigma = self.pdd_std_dev # array or float
-
     # interpolate temperature series
     newtemp = self._interpolate(temp)
 
-    # if sigma is not zero, use the Calov and Greve (2005) formula
-    if stdv is not None or sigma != 0:
+    # if sigma is zero scalar, use positive part of temperature
+    if type(stdv) is int and stdv == 0:
+      teff = np.greater(newtemp,0)*newtemp
+
+    # otherwise use the Calov and Greve (2005) formula
+    else:
+      if type(stdv) is np.ndarray:
+        sigma = self._interpolate(stdv)
+      else:
+        sigma = stdv
       z = newtemp / (sqrt(2)*sigma)
       teff = sigma / sqrt(2*pi) * np.exp(-z**2) + newtemp/2 * erfc(-z)
-
-    # else use positive part of temperatures
-    else:
-      teff = np.greater(newtemp,0)*newtemp
 
     # interpolate and integrate
     return self._integrate(teff)*365.242198781
@@ -148,7 +143,7 @@ class PDDModel():
     smb = snow - runoff
     return (melt, runoff, smb)
 
-  def nco(self, input_file, output_file, big=False, force_cst_stdv=False):
+  def nco(self, input_file, output_file, big=False, stdv=None):
     """NetCDF operator"""
 
     from netCDF4 import Dataset as NC
@@ -160,10 +155,11 @@ class PDDModel():
     # read input data
     temp = i.variables['air_temp'][:]
     prec = i.variables['precipitation'][:]
-    if force_cst_stdv or 'air_temp_stdev' not in i.variables:
-      stdv = None
-    else:
-      stdv = i.variables['air_temp_stdev'][:]
+    if stdv is None:
+      try:
+        stdv = i.variables['air_temp_stdev'][:]
+      except KeyError:
+        stdv = 0
 
     # convert to degC
     # TODO: handle unit conversion better
@@ -351,11 +347,9 @@ if __name__ == "__main__":
       pdd_factor_snow = args.pdd_factor_snow,
       pdd_factor_ice  = args.pdd_factor_ice,
       pdd_refreeze    = args.pdd_refreeze,
-      pdd_std_dev     = args.pdd_std_dev,
       temp_snow       = args.temp_snow,
       temp_rain       = args.temp_rain)
 
     # compute surface mass balance
-    pdd.nco(args.input or 'atm.nc', args.output, big=args.big,
-      force_cst_stdv=(args.pdd_std_dev is not None))
+    pdd.nco(args.input or 'atm.nc', args.output, big=args.big, stdv=args.pdd_std_dev)
 
