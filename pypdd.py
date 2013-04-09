@@ -81,7 +81,7 @@ class PDDModel():
 
     return interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
 
-  def pdd(self, temp, stdv=0):
+  def pdd(self, temp, stdv=0.):
     """Compute positive degree days from temperature time series"""
 
     from math import exp, pi, sqrt
@@ -91,7 +91,7 @@ class PDDModel():
     newtemp = self._interpolate(temp)
 
     # if sigma is zero scalar, use positive part of temperature
-    if type(stdv) is int and stdv == 0:
+    if type(stdv) is float and stdv == 0:
       teff = np.greater(newtemp,0)*newtemp
 
     # otherwise use the Calov and Greve (2005) formula
@@ -159,7 +159,7 @@ class PDDModel():
       try:
         stdv = i.variables['air_temp_stdev'][:]
       except KeyError:
-        stdv = 0
+        stdv = 0.
 
     # convert to degC
     # TODO: handle unit conversion better
@@ -279,7 +279,7 @@ def make_fake_climate(filename):
     prec.units     = "m yr-1"
 
     # assign coordinate values
-    lx = ly = 1000
+    lx = ly = 750000
     xvar[:] = np.linspace(-lx, lx, len(xdim))
     yvar[:] = np.linspace(-ly, ly, len(ydim))
     tvar[:] = np.arange(len(tdim))
