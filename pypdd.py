@@ -43,13 +43,46 @@ class PDDModel():
     self.interpolate_rule= interpolate_rule
     self.interpolate_n   = interpolate_n
 
-  def __call__(self, temp, prec, stdv=0, big=False):
+  def __call__(self, temp, prec, stdv=0., big=False):
     """Run the PDD model"""
-    pdd  = self.pdd(temp, stdv=stdv)
-    snow = self.snow(temp, prec)
-    (melt, runoff, smb)  = self.smb(snow, pdd)
+
+    # interpolate time-series
+    newtemp = self._interpolate(temp)
+    newprec = self._interpolate(prec)
+
+    # expand stdv
+    if type(stdv) == float:
+      newstdv = np.ones_like(newtemp) * stdv
+    else:
+      newstdv = self._interpolate(stdv)
+
+    # compute accumulation and pdd
+    accu_rate = self.accu_rate(newtemp, newprec)
+    inst_pdd  = self.pdd(newtemp, newstdv)
+
+    # compute snow depth and melt rates
+    snow_depth     = np.zeros_like(newtemp)
+    snow_melt_rate = np.zeros_like(newtemp)
+    ice_melt_rate  = np.zeros_like(newtemp)
+    melt_rate      = np.zeros_like(newtemp)
+    for i in range(len(newtemp)):
+      if i > 0: snow_depth[i] = snow_depth[i-1]
+      snow_depth[i] += accu_rate[i]
+      snow_melt_rate[i], ice_melt_rate[i] = self.melt_rates(snow_depth[i], inst_pdd[i])
+      snow_depth[i] -= snow_melt_rate[i]
+
+    # compute comulative quantities
+    pdd       = self._integrate(inst_pdd)
+    accu      = self._integrate(accu_rate)
+    snow_melt = self._integrate(snow_melt_rate)
+    ice_melt  = self._integrate(ice_melt_rate)
+    melt   = snow_melt + ice_melt
+    runoff = melt - self.pdd_refreeze * melt
+    smb    = accu - runoff
+
+    # output
     if big:
-      return dict(pdd=pdd, snow=snow, melt=melt, runoff=runoff, smb=smb)
+      return dict(pdd=pdd, snow=accu, melt=melt, runoff=runoff, smb=smb)
     else:
       return smb
 
@@ -78,55 +111,44 @@ class PDDModel():
     x = np.linspace(0, 1, 13)
     y = np.append(a, [a[0]], axis=0)
     newx = np.linspace(0, 1, self.interpolate_n)
-
     return interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
 
-  def pdd(self, temp, stdv=0.):
-    """Compute positive degree days from temperature time series"""
+  def inst_pdd(self, temp, stdv):
+    """Compute instantaneous positive degree days from temperature and its standard deviation"""
 
     from math import exp, pi, sqrt
     from scipy.special import erfc
 
-    # interpolate temperature series
-    newtemp = self._interpolate(temp)
-
     # if sigma is zero scalar, use positive part of temperature
-    if type(stdv) is float and stdv == 0:
-      teff = np.greater(newtemp,0)*newtemp
+    def positivepart(temp):
+      return np.greater(temp,0)*temp
 
     # otherwise use the Calov and Greve (2005) formula
-    else:
-      if type(stdv) is np.ndarray:
-        sigma = self._interpolate(stdv)
-      else:
-        sigma = stdv
-      z = newtemp / (sqrt(2)*sigma)
-      teff = sigma / sqrt(2*pi) * np.exp(-z**2) + newtemp/2 * erfc(-z)
+    def calovgreve(temp, stdv):
+      z = temp / (sqrt(2)*stdv)
+      return stdv / sqrt(2*pi) * np.exp(-z**2) + temp/2 * erfc(-z)
 
-    # interpolate and integrate
-    return self._integrate(teff)*365.242198781
+    teff = np.where(stdv == 0., positivepart(temp), calovgreve(temp, stdv))
 
-  def snow(self, temp, prec):
-    """Compute snow precipitation from temperature and precipitation"""
+    # convert to degree-days
+    return teff*365.242198781
 
-    # interpolate temperature and precipitation
-    newtemp = self._interpolate(temp)
-    newprec = self._interpolate(prec)
+  def accu_rate(self, temp, prec):
+    """Compute accumulation rate from temperature and precipitation"""
 
     # compute snow fraction as a function of temperature
-    reduced_temp = (self.temp_rain-newtemp)/(self.temp_rain-self.temp_snow)
+    reduced_temp = (self.temp_rain-temp)/(self.temp_rain-self.temp_snow)
     snowfrac     = np.clip(reduced_temp, 0, 1)
 
-    # return total snow precipitation
-    return self._integrate(snowfrac*newprec)
+    # return accumulation rate
+    return snowfrac*prec
 
-  def smb(self, snow, pdd):
-    """Compute surface mass balance from snow precipitation and pdd sum"""
+  def melt_rates(self, snow, pdd):
+    """Compute melt rate from snow precipitation and pdd sum"""
 
     # parse model parameters for readability
     ddf_snow = self.pdd_factor_snow
     ddf_ice  = self.pdd_factor_ice
-    refreeze = self.pdd_refreeze
 
     # compute a potential snow melt
     pot_snow_melt = ddf_snow * pdd
@@ -137,11 +159,8 @@ class PDDModel():
     # ice melt is proportional to excess snow melt
     ice_melt = (pot_snow_melt - snow_melt) * ddf_ice/ddf_snow
 
-    # compute total melt, runoff and mass balance
-    melt = snow_melt + ice_melt
-    runoff = melt - refreeze * snow_melt
-    smb = snow - runoff
-    return (melt, runoff, smb)
+    # return melt rates
+    return (snow_melt, ice_melt)
 
   def nco(self, input_file, output_file, big=False, stdv=None):
     """NetCDF operator"""
@@ -348,7 +367,10 @@ if __name__ == "__main__":
       pdd_factor_ice  = args.pdd_factor_ice,
       pdd_refreeze    = args.pdd_refreeze,
       temp_snow       = args.temp_snow,
-      temp_rain       = args.temp_rain)
+      temp_rain       = args.temp_rain,
+      integrate_rule  = args.integrate_rule,
+      interpolate_rule= args.interpolate_rule,
+      interpolate_n   = args.interpolate_n)
 
     # compute surface mass balance
     pdd.nco(args.input or 'atm.nc', args.output, big=args.big, stdv=args.pdd_std_dev)
