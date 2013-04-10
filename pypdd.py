@@ -82,7 +82,24 @@ class PDDModel():
 
     # output
     if big:
-      return dict(pdd=pdd, snow=accu, melt=melt, runoff=runoff, smb=smb)
+      return dict(
+        temp           = newtemp,
+        prec           = newprec,
+        stdv           = newstdv,
+        inst_pdd       = inst_pdd,
+        accu_rate      = accu_rate,
+        snow_melt_rate = snow_melt_rate,
+        ice_melt_rate  = ice_melt_rate,
+        melt_rate      = melt_rate,
+        snow_depth     = snow_depth,
+        pdd            = pdd,
+        accu           = accu,
+        snow_melt      = snow_melt,
+        ice_melt       = ice_melt,
+        melt           = melt,
+        runoff         = runoff,
+        smb            = smb,
+      )
     else:
       return smb
 
@@ -188,62 +205,111 @@ class PDDModel():
     if i.variables['air_temp'].units == 'K': temp = temp - 273.15
 
     # get dimensions tuple from temp variable
-    xydim = i.variables['air_temp'].dimensions[1:]
+    txydim = i.variables['air_temp'].dimensions
+    xydim = txydim[1:]
 
-    # copy dimensions
-    for dimname,dim in i.dimensions.iteritems():
-      dimlen = None if dim.isunlimited() else len(dim)
-      o.createDimension(dimname,dimlen)
+    # create dimensions
+    o.createDimension(txydim[0], self.interpolate_n - 1)
+    for dimname in xydim:
+      o.createDimension(dimname, len(i.dimensions[dimname]))
 
     # copy coordinates
     for varname,ivar in i.variables.iteritems():
-      if varname in i.dimensions:
+      if varname in xydim:
         ovar = o.createVariable(varname, ivar.dtype, ivar.dimensions)
         for attname in ivar.ncattrs():
           setattr(ovar,attname,getattr(ivar,attname))
         ovar[:] = ivar[:]
 
     # create surface mass balance variable
-    smbvar = o.createVariable('climatic_mass_balance', 'f4', xydim)
-    smbvar.long_name     = 'instantaneous ice-equivalent surface mass balance (accumulation/ablation) rate'
-    smbvar.standard_name = 'land_ice_surface_specific_mass_balance'
-    smbvar.units         = 'm yr-1'
+    smb_var = o.createVariable('climatic_mass_balance', 'f4', xydim)
+    smb_var.long_name     = 'instantaneous ice-equivalent surface mass balance (accumulation/ablation) rate'
+    smb_var.standard_name = 'land_ice_surface_specific_mass_balance'
+    smb_var.units         = 'm yr-1'
 
     # create more variables for 'big' output
     if big:
 
       # create snow precipitation variable
-      pddvar = o.createVariable('pdd', 'f4', xydim)
-      pddvar.long_name = 'number of positive degree days'
-      pddvar.units = 'degC day'
+      pdd_var = o.createVariable('pdd', 'f4', xydim)
+      pdd_var.long_name = 'number of positive degree days'
+      pdd_var.units = 'degC day'
 
       # create snow precipitation variable
-      snowvar = o.createVariable('saccum', 'f4', xydim)
-      snowvar.long_name = 'instantaneous ice-equivalent surface accumulation rate (precipitation minus rain)'
-      snowvar.units = 'm yr-1'
+      accu_var = o.createVariable('saccum', 'f4', xydim)
+      accu_var.long_name = 'instantaneous ice-equivalent surface accumulation rate (precipitation minus rain)'
+      accu_var.units = 'm yr-1'
 
       # create melt variable
-      meltvar = o.createVariable('smelt', 'f4', xydim)
-      meltvar.long_name = 'instantaneous ice-equivalent surface melt rate'
-      meltvar.units = 'm yr-1'
+      snow_melt_var = o.createVariable('snow_melt', 'f4', xydim)
+      snow_melt_var.long_name = 'cumulative melt of snow'
+      snow_melt_var.units = 'm yr-1'
+      ice_melt_var = o.createVariable('ice_melt', 'f4', xydim)
+      ice_melt_var.long_name = 'cumulative melt rate'
+      ice_melt_var.units = 'm yr-1'
+      melt_var = o.createVariable('smelt', 'f4', xydim)
+      melt_var.long_name = 'instantaneous ice-equivalent surface melt rate'
+      melt_var.units = 'm yr-1'
 
       # create runoff variable
-      runoffvar = o.createVariable('srunoff', 'f4', xydim)
-      runoffvar.long_name = 'instantaneous ice-equivalent surface meltwater runoff rate'
-      runoffvar.units = 'm yr-1'
+      runoff_var = o.createVariable('srunoff', 'f4', xydim)
+      runoff_var.long_name = 'instantaneous ice-equivalent surface meltwater runoff rate'
+      runoff_var.units = 'm yr-1'
+
+      # interpolated climatic variables
+      temp_var = o.createVariable('air_temp', 'f4', txydim)
+      temp_var.long_name = 'near-surface air temperature'
+      temp_var.units     = 'degC'
+      prec_var = o.createVariable('precipitation', 'f4', txydim)
+      prec_var.long_name = 'ice-equivalent precipitation rate'
+      prec_var.units     = 'm yr-1'
+      stdv_var = o.createVariable('air_temp_stdv', 'f4', txydim)
+      stdv_var.long_name = 'standard deviation of near-surface air temperature'
+      stdv_var.units     = 'degC'
+
+      # instantaneous pdd
+      inst_pdd_var = o.createVariable('inst_pdd', 'f4', txydim)
+      inst_pdd_var.long_name = 'instantaneous positive degree days'
+      inst_pdd_var.units = 'degC day'
+
+      # accumulation rate variable
+      accu_rate_var = o.createVariable('accu_rate', 'f4', txydim)
+      accu_rate_var.long_name = 'instantaneous accumulation rate'
+      accu_rate_var.units = 'm yr-1'
+      snow_melt_rate_var = o.createVariable('snow_melt_rate', 'f4', txydim)
+      snow_melt_rate_var.long_name = 'instantaneous melt rate of snow'
+      snow_melt_rate_var.units = 'm yr-1'
+      ice_melt_rate_var = o.createVariable('ice_melt_rate', 'f4', txydim)
+      ice_melt_rate_var.long_name = 'instantaneous melt rate of ice'
+      ice_melt_rate_var.units = 'm yr-1'
+      melt_rate_var = o.createVariable('melt_rate', 'f4', txydim)
+      melt_rate_var.long_name = 'instantaneous melt rate of snow and ice'
+      melt_rate_var.units = 'm yr-1'
+      snow_depth_var = o.createVariable('snow_depth', 'f4', txydim)
+      snow_depth_var.long_name = 'depth of snow cover'
+      snow_depth_var.units = 'm'
 
     # run PDD model
     smb = self(temp, prec, stdv=stdv, big=big)
 
     # assign variables values
+    smb_var[:]            = smb['smb'],
     if big:
-      pddvar[:]    = smb['pdd']
-      snowvar[:]   = smb['snow']
-      meltvar[:]   = smb['melt']
-      runoffvar[:] = smb['runoff']
-      smbvar[:]    = smb['smb']
-    else:
-      smbvar[:] = smb
+      pdd_var[:]            = smb['pdd'],
+      accu_var[:]           = smb['accu'],
+      snow_melt_var[:]      = smb['snow_melt'],
+      ice_melt_var[:]       = smb['ice_melt'],
+      melt_var[:]           = smb['melt'],
+      runoff_var[:]         = smb['runoff'],
+      temp_var[:]           = smb['temp'],
+      prec_var[:]           = smb['prec'],
+      stdv_var[:]           = smb['stdv'],
+      inst_pdd_var[:]       = smb['inst_pdd'],
+      accu_rate_var[:]      = smb['accu_rate'],
+      snow_melt_rate_var[:] = smb['snow_melt_rate'],
+      ice_melt_rate_var[:]  = smb['ice_melt_rate'],
+      melt_rate_var[:]      = smb['melt_rate'],
+      snow_depth_var[:]     = smb['snow_depth'],
 
     # close netcdf files
     i.close()
