@@ -58,7 +58,7 @@ class PDDModel():
 
     # compute accumulation and pdd
     accu_rate = self.accu_rate(newtemp, newprec)
-    inst_pdd  = self.pdd(newtemp, newstdv)
+    inst_pdd  = self.inst_pdd(newtemp, newstdv)
 
     # compute snow depth and melt rates
     snow_depth     = np.zeros_like(newtemp)
@@ -93,14 +93,16 @@ class PDDModel():
     dx = 1./(self.interpolate_n-1)
 
     if rule == 'rectangle':
-      return np.sum(a[:-1], axis=0)*dx
+      return np.sum(a, axis=0)*dx
 
     if rule == 'trapeze':
       from scipy.integrate import trapz
+      a = np.append(a, [a[0]], axis=0)
       return trapz(a, axis=0, dx=dx)
 
     if rule == 'simpson':
       from scipy.integrate import simps
+      a = np.append(a, [a[0]], axis=0)
       return simps(a, axis=0, dx=dx)
 
   def _interpolate(self, a):
@@ -111,7 +113,8 @@ class PDDModel():
     x = np.linspace(0, 1, 13)
     y = np.append(a, [a[0]], axis=0)
     newx = np.linspace(0, 1, self.interpolate_n)
-    return interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
+    newy = interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
+    return newy[:-1]
 
   def inst_pdd(self, temp, stdv):
     """Compute instantaneous positive degree days from temperature and its standard deviation"""
