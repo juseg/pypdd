@@ -64,12 +64,12 @@ class PDDModel():
     snow_depth     = np.zeros_like(newtemp)
     snow_melt_rate = np.zeros_like(newtemp)
     ice_melt_rate  = np.zeros_like(newtemp)
-    melt_rate      = np.zeros_like(newtemp)
     for i in range(len(newtemp)):
       if i > 0: snow_depth[i] = snow_depth[i-1]
       snow_depth[i] += accu_rate[i]
       snow_melt_rate[i], ice_melt_rate[i] = self.melt_rates(snow_depth[i], inst_pdd[i])
       snow_depth[i] -= snow_melt_rate[i]
+    melt_rate = snow_melt_rate + ice_melt_rate
 
     # compute comulative quantities
     pdd       = self._integrate(inst_pdd)
