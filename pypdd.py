@@ -4,260 +4,259 @@
 
 import numpy as np
 
+
 # Default model parameters
 # ------------------------
 
 default_pdd_factor_snow = 0.003
-default_pdd_factor_ice  = 0.008
-default_pdd_refreeze    = 0.6
-default_temp_snow       = 0.
-default_temp_rain       = 2.
-default_integrate_rule  = 'rectangle'
-default_interpolate_rule= 'linear'
-default_interpolate_n   = 53
+default_pdd_factor_ice = 0.008
+default_pdd_refreeze = 0.6
+default_temp_snow = 0.
+default_temp_rain = 2.
+default_integrate_rule = 'rectangle'
+default_interpolate_rule = 'linear'
+default_interpolate_n = 53
+
 
 # PDD model class
 # ---------------
 
 class PDDModel():
-  """A Positive Degree Day (PDD) model for glacier surface mass balance"""
+    """A Positive Degree Day (PDD) model for glacier surface mass balance"""
 
-  def __init__(self,
-    pdd_factor_snow = default_pdd_factor_snow,
-    pdd_factor_ice  = default_pdd_factor_ice,
-    pdd_refreeze    = default_pdd_refreeze,
-    temp_snow       = default_temp_snow,
-    temp_rain       = default_temp_rain,
-    integrate_rule  = default_integrate_rule,
-    interpolate_rule= default_interpolate_rule,
-    interpolate_n   = default_interpolate_n):
-    """Initiate a PDD model with given parameters"""
+    def __init__(self,
+                 pdd_factor_snow=default_pdd_factor_snow,
+                 pdd_factor_ice=default_pdd_factor_ice,
+                 pdd_refreeze=default_pdd_refreeze,
+                 temp_snow=default_temp_snow,
+                 temp_rain=default_temp_rain,
+                 integrate_rule=default_integrate_rule,
+                 interpolate_rule=default_interpolate_rule,
+                 interpolate_n=default_interpolate_n):
+        """Initiate a PDD model with given parameters"""
 
-    # set pdd model parameters
-    self.pdd_factor_snow = pdd_factor_snow
-    self.pdd_factor_ice  = pdd_factor_ice
-    self.pdd_refreeze    = pdd_refreeze
-    self.temp_snow       = temp_snow
-    self.temp_rain       = temp_rain
-    self.integrate_rule  = integrate_rule
-    self.interpolate_rule= interpolate_rule
-    self.interpolate_n   = interpolate_n
+        # set pdd model parameters
+        self.pdd_factor_snow = pdd_factor_snow
+        self.pdd_factor_ice = pdd_factor_ice
+        self.pdd_refreeze = pdd_refreeze
+        self.temp_snow = temp_snow
+        self.temp_rain = temp_rain
+        self.integrate_rule = integrate_rule
+        self.interpolate_rule = interpolate_rule
+        self.interpolate_n = interpolate_n
 
-  def __call__(self, temp, prec, stdv=0., big=False):
-    """Run the PDD model"""
+    def __call__(self, temp, prec, stdv=0., big=False):
+        """Run the PDD model"""
 
-    # interpolate time-series
-    newtemp = self._interpolate(temp)
-    newprec = self._interpolate(prec)
+        # interpolate time-series
+        newtemp = self._interpolate(temp)
+        newprec = self._interpolate(prec)
 
-    # expand stdv
-    if type(stdv) == float:
-      newstdv = np.ones_like(newtemp) * stdv
-    else:
-      newstdv = self._interpolate(stdv)
+        # expand stdv
+        if type(stdv) == float:
+            newstdv = np.ones_like(newtemp) * stdv
+        else:
+            newstdv = self._interpolate(stdv)
 
-    # compute accumulation and pdd
-    accu_rate = self.accu_rate(newtemp, newprec)
-    inst_pdd  = self.inst_pdd(newtemp, newstdv)
+        # compute accumulation and pdd
+        accu_rate = self.accu_rate(newtemp, newprec)
+        inst_pdd = self.inst_pdd(newtemp, newstdv)
 
-    # compute snow depth and melt rates
-    snow_depth     = np.zeros_like(newtemp)
-    snow_melt_rate = np.zeros_like(newtemp)
-    ice_melt_rate  = np.zeros_like(newtemp)
-    for i in range(len(newtemp)):
-      if i > 0: snow_depth[i] = snow_depth[i-1]
-      snow_depth[i] += accu_rate[i]
-      snow_melt_rate[i], ice_melt_rate[i] = self.melt_rates(snow_depth[i], inst_pdd[i])
-      snow_depth[i] -= snow_melt_rate[i]
-    melt_rate = snow_melt_rate + ice_melt_rate
+        # compute snow depth and melt rates
+        snow_depth = np.zeros_like(newtemp)
+        snow_melt_rate = np.zeros_like(newtemp)
+        ice_melt_rate = np.zeros_like(newtemp)
+        for i in range(len(newtemp)):
+            if i > 0:
+                snow_depth[i] = snow_depth[i-1]
+            snow_depth[i] += accu_rate[i]
+            snow_melt_rate[i], ice_melt_rate[i] = self.melt_rates(
+                snow_depth[i], inst_pdd[i])
+            snow_depth[i] -= snow_melt_rate[i]
+        melt_rate = snow_melt_rate + ice_melt_rate
 
-    # compute comulative quantities
-    pdd       = self._integrate(inst_pdd)
-    accu      = self._integrate(accu_rate)
-    snow_melt = self._integrate(snow_melt_rate)
-    ice_melt  = self._integrate(ice_melt_rate)
-    melt   = snow_melt + ice_melt
-    runoff = melt - self.pdd_refreeze * melt
-    smb    = accu - runoff
+        # compute comulative quantities
+        pdd = self._integrate(inst_pdd)
+        accu = self._integrate(accu_rate)
+        snow_melt = self._integrate(snow_melt_rate)
+        ice_melt = self._integrate(ice_melt_rate)
+        melt = snow_melt + ice_melt
+        runoff = melt - self.pdd_refreeze * melt
+        smb = accu - runoff
 
-    # output
-    if big:
-      return dict(
-        temp           = newtemp,
-        prec           = newprec,
-        stdv           = newstdv,
-        inst_pdd       = inst_pdd,
-        accu_rate      = accu_rate,
-        snow_melt_rate = snow_melt_rate,
-        ice_melt_rate  = ice_melt_rate,
-        melt_rate      = melt_rate,
-        snow_depth     = snow_depth,
-        pdd            = pdd,
-        accu           = accu,
-        snow_melt      = snow_melt,
-        ice_melt       = ice_melt,
-        melt           = melt,
-        runoff         = runoff,
-        smb            = smb,
-      )
-    else:
-      return smb
+        # output
+        if big:
+            return dict(temp=newtemp,
+                        prec=newprec,
+                        stdv=newstdv,
+                        inst_pdd=inst_pdd,
+                        accu_rate=accu_rate,
+                        snow_melt_rate=snow_melt_rate,
+                        ice_melt_rate=ice_melt_rate,
+                        melt_rate=melt_rate,
+                        snow_depth=snow_depth,
+                        pdd=pdd,
+                        accu=accu,
+                        snow_melt=snow_melt,
+                        ice_melt=ice_melt,
+                        melt=melt,
+                        runoff=runoff,
+                        smb=smb)
+        else:
+            return smb
 
-  def _integrate(self, a):
-    """Integrate an array over one year"""
+    def _integrate(self, a):
+        """Integrate an array over one year"""
+        rule = self.integrate_rule
+        dx = 1./(self.interpolate_n-1)
+        if rule == 'rectangle':
+            return np.sum(a, axis=0)*dx
+        if rule == 'trapeze':
+            from scipy.integrate import trapz
+            a = np.append(a, [a[0]], axis=0)
+            return trapz(a, axis=0, dx=dx)
+        if rule == 'simpson':
+            from scipy.integrate import simps
+            a = np.append(a, [a[0]], axis=0)
+            return simps(a, axis=0, dx=dx)
 
-    rule = self.integrate_rule
-    dx = 1./(self.interpolate_n-1)
+    def _interpolate(self, a):
+        """Interpolate an array through one year"""
+        from scipy.interpolate import interp1d
+        x = np.linspace(0, 1, 13)
+        y = np.append(a, [a[0]], axis=0)
+        newx = np.linspace(0, 1, self.interpolate_n)
+        newy = interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
+        return newy[:-1]
 
-    if rule == 'rectangle':
-      return np.sum(a, axis=0)*dx
+    def inst_pdd(self, temp, stdv):
+        """Compute instantaneous positive degree days from temperature"""
+        from math import pi, sqrt
+        from scipy.special import erfc
 
-    if rule == 'trapeze':
-      from scipy.integrate import trapz
-      a = np.append(a, [a[0]], axis=0)
-      return trapz(a, axis=0, dx=dx)
+        # positive part of temperature
+        def positivepart(temp):
+            return np.greater(temp, 0)*temp
 
-    if rule == 'simpson':
-      from scipy.integrate import simps
-      a = np.append(a, [a[0]], axis=0)
-      return simps(a, axis=0, dx=dx)
+        # Calov and Greve (2005) integrand
+        def calovgreve(temp, stdv):
+            z = temp / (sqrt(2)*stdv)
+            return stdv / sqrt(2*pi) * np.exp(-z**2) + temp/2 * erfc(-z)
 
-  def _interpolate(self, a):
-    """Interpolate an array through one year"""
+        # use positive part where sigma is zero and Calov and Greve elsewhere
+        teff = np.where(stdv == 0., positivepart(temp), calovgreve(temp, stdv))
 
-    from scipy.interpolate import interp1d
+        # convert to degree-days
+        return teff*365.242198781
 
-    x = np.linspace(0, 1, 13)
-    y = np.append(a, [a[0]], axis=0)
-    newx = np.linspace(0, 1, self.interpolate_n)
-    newy = interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
-    return newy[:-1]
+    def accu_rate(self, temp, prec):
+        """Compute accumulation rate from temperature and precipitation"""
 
-  def inst_pdd(self, temp, stdv):
-    """Compute instantaneous positive degree days from temperature and its standard deviation"""
+        # compute snow fraction as a function of temperature
+        reduced_temp = (self.temp_rain-temp)/(self.temp_rain-self.temp_snow)
+        snowfrac = np.clip(reduced_temp, 0, 1)
 
-    from math import exp, pi, sqrt
-    from scipy.special import erfc
+        # return accumulation rate
+        return snowfrac*prec
 
-    # if sigma is zero scalar, use positive part of temperature
-    def positivepart(temp):
-      return np.greater(temp,0)*temp
+    def melt_rates(self, snow, pdd):
+        """Compute melt rate from snow precipitation and pdd sum"""
 
-    # otherwise use the Calov and Greve (2005) formula
-    def calovgreve(temp, stdv):
-      z = temp / (sqrt(2)*stdv)
-      return stdv / sqrt(2*pi) * np.exp(-z**2) + temp/2 * erfc(-z)
+        # parse model parameters for readability
+        ddf_snow = self.pdd_factor_snow
+        ddf_ice = self.pdd_factor_ice
 
-    teff = np.where(stdv == 0., positivepart(temp), calovgreve(temp, stdv))
+        # compute a potential snow melt
+        pot_snow_melt = ddf_snow * pdd
 
-    # convert to degree-days
-    return teff*365.242198781
+        # effective snow melt can't exceed amount of snow
+        snow_melt = np.minimum(snow, pot_snow_melt)
 
-  def accu_rate(self, temp, prec):
-    """Compute accumulation rate from temperature and precipitation"""
+        # ice melt is proportional to excess snow melt
+        ice_melt = (pot_snow_melt - snow_melt) * ddf_ice/ddf_snow
 
-    # compute snow fraction as a function of temperature
-    reduced_temp = (self.temp_rain-temp)/(self.temp_rain-self.temp_snow)
-    snowfrac     = np.clip(reduced_temp, 0, 1)
+        # return melt rates
+        return (snow_melt, ice_melt)
 
-    # return accumulation rate
-    return snowfrac*prec
+    def nco(self, input_file, output_file, big=False, stdv=None):
+        """NetCDF operator"""
+        from netCDF4 import Dataset as NC
 
-  def melt_rates(self, snow, pdd):
-    """Compute melt rate from snow precipitation and pdd sum"""
+        # open netcdf files
+        i = NC(input_file, 'r')
+        o = NC(output_file, 'w', format='NETCDF3_CLASSIC')
 
-    # parse model parameters for readability
-    ddf_snow = self.pdd_factor_snow
-    ddf_ice  = self.pdd_factor_ice
+        # read input data
+        temp = i.variables['air_temp'][:]
+        prec = i.variables['precipitation'][:]
+        if stdv is None:
+            try:
+                stdv = i.variables['air_temp_stdev'][:]
+            except KeyError:
+                stdv = 0.
 
-    # compute a potential snow melt
-    pot_snow_melt = ddf_snow * pdd
+        # convert to degC
+        # TODO: handle unit conversion better
+        if i.variables['air_temp'].units == 'K':
+            temp = temp - 273.15
 
-    # effective snow melt can't exceed amount of snow
-    snow_melt = np.minimum(snow, pot_snow_melt)
+        # get dimensions tuple from temp variable
+        txydim = i.variables['air_temp'].dimensions
+        xydim = txydim[1:]
 
-    # ice melt is proportional to excess snow melt
-    ice_melt = (pot_snow_melt - snow_melt) * ddf_ice/ddf_snow
+        # create dimensions
+        o.createDimension(txydim[0], self.interpolate_n - 1)
+        for dimname in xydim:
+            o.createDimension(dimname, len(i.dimensions[dimname]))
 
-    # return melt rates
-    return (snow_melt, ice_melt)
+        # copy coordinates
+        for varname, ivar in i.variables.iteritems():
+            if varname in xydim:
+                ovar = o.createVariable(varname, ivar.dtype, ivar.dimensions)
+                for attname in ivar.ncattrs():
+                    setattr(ovar, attname, getattr(ivar, attname))
+                ovar[:] = ivar[:]
 
-  def nco(self, input_file, output_file, big=False, stdv=None):
-    """NetCDF operator"""
+        # run PDD model
+        smb = self(temp, prec, stdv=stdv, big=big)
 
-    from netCDF4 import Dataset as NC
+        # create surface mass balance variable
+        from ConfigParser import ConfigParser
+        config = ConfigParser()
+        config.read('names.ini')
+        for varname in ['smb']:
+            var = o.createVariable(varname, 'f4', xydim)
+            var.long_name = config.get(varname, 'long_name')
+            var.standard_name = config.get(varname, 'standard_name')
+            var.units = config.get(varname, 'units')
+            var[:] = smb['smb'] if big else smb
 
-    # open netcdf files
-    i = NC(input_file, 'r')
-    o = NC(output_file, 'w', format='NETCDF3_CLASSIC')
+        # create more variables for 'big' output
+        if big:
+            for varname in ['pdd', 'accu', 'snow_melt', 'ice_melt', 'melt',
+                            'runoff']:
+                var = o.createVariable(varname, 'f4', xydim)
+                var.long_name = config.get(varname, 'long_name')
+                var.units = config.get(varname, 'units')
+                var[:] = smb[varname]
+            for varname in ['temp', 'prec', 'stdv', 'inst_pdd', 'accu_rate',
+                            'snow_melt_rate', 'ice_melt_rate', 'melt_rate',
+                            'snow_depth']:
+                var = o.createVariable(varname, 'f4', txydim)
+                var.long_name = config.get(varname, 'long_name')
+                var.units = config.get(varname, 'units')
+                var[:] = smb[varname]
 
-    # read input data
-    temp = i.variables['air_temp'][:]
-    prec = i.variables['precipitation'][:]
-    if stdv is None:
-      try:
-        stdv = i.variables['air_temp_stdev'][:]
-      except KeyError:
-        stdv = 0.
+        # close netcdf files
+        i.close()
+        o.close()
 
-    # convert to degC
-    # TODO: handle unit conversion better
-    if i.variables['air_temp'].units == 'K': temp = temp - 273.15
-
-    # get dimensions tuple from temp variable
-    txydim = i.variables['air_temp'].dimensions
-    xydim = txydim[1:]
-
-    # create dimensions
-    o.createDimension(txydim[0], self.interpolate_n - 1)
-    for dimname in xydim:
-      o.createDimension(dimname, len(i.dimensions[dimname]))
-
-    # copy coordinates
-    for varname,ivar in i.variables.iteritems():
-      if varname in xydim:
-        ovar = o.createVariable(varname, ivar.dtype, ivar.dimensions)
-        for attname in ivar.ncattrs():
-          setattr(ovar,attname,getattr(ivar,attname))
-        ovar[:] = ivar[:]
-
-    # run PDD model
-    smb = self(temp, prec, stdv=stdv, big=big)
-
-    # create surface mass balance variable
-    from ConfigParser import ConfigParser
-    config = ConfigParser()
-    config.read('names.ini')
-    for varname in ['smb']:
-      var = o.createVariable(varname, 'f4', xydim)
-      var.long_name     = config.get(varname, 'long_name')
-      var.standard_name = config.get(varname, 'standard_name')
-      var.units         = config.get(varname, 'units')
-      var[:] = smb['smb'] if big else smb
-
-    # create more variables for 'big' output
-    if big:
-      for varname in ['pdd', 'accu', 'snow_melt', 'ice_melt', 'melt', 'runoff']:
-        var = o.createVariable(varname, 'f4', xydim)
-        var.long_name     = config.get(varname, 'long_name')
-        var.units         = config.get(varname, 'units')
-        var[:] = smb[varname]
-      for varname in ['temp', 'prec', 'stdv', 'inst_pdd', 'accu_rate', 'snow_melt_rate', 'ice_melt_rate', 'melt_rate', 'snow_depth']:
-        var = o.createVariable(varname, 'f4', txydim)
-        var.long_name     = config.get(varname, 'long_name')
-        var.units         = config.get(varname, 'units')
-        var[:] = smb[varname]
-
-    # close netcdf files
-    i.close()
-    o.close()
 
 # Command-line interface
 # ----------------------
 
 def make_fake_climate(filename):
     """Create an artificial temperature and precipitation file"""
-
     from math import cos, pi
     from netCDF4 import Dataset as NC
 
@@ -272,50 +271,50 @@ def make_fake_climate(filename):
 
     # create x coordinate variable
     xvar = nc.createVariable('x', 'f4', ('x',))
-    xvar.axis          = 'X'
-    xvar.long_name     = 'x-coordinate in Cartesian system'
+    xvar.axis = 'X'
+    xvar.long_name = 'x-coordinate in Cartesian system'
     xvar.standard_name = 'projection_x_coordinate'
-    xvar.units         = 'm'
+    xvar.units = 'm'
 
     # create y coordinate variable
     yvar = nc.createVariable('y', 'f4', ('y',))
-    yvar.axis          = 'Y'
-    yvar.long_name     = 'y-coordinate in Cartesian system'
+    yvar.axis = 'Y'
+    yvar.long_name = 'y-coordinate in Cartesian system'
     yvar.standard_name = 'projection_y_coordinate'
-    yvar.units         = 'm'
+    yvar.units = 'm'
 
     # create time coordinate and time bounds
     tvar = nc.createVariable('time', 'f4', ('time',))
-    tvar.axis          = 'T'
-    tvar.long_name     = 'time'
+    tvar.axis = 'T'
+    tvar.long_name = 'time'
     tvar.standard_name = 'time'
-    tvar.units         = 'month'
-    tvar.bounds        = 'time_bounds'
-    tboundsvar = nc.createVariable('time_bounds', 'f4', ('time','nv'))
+    tvar.units = 'month'
+    tvar.bounds = 'time_bounds'
+    tboundsvar = nc.createVariable('time_bounds', 'f4', ('time', 'nv'))
 
     # create air temperature variable
     temp = nc.createVariable('air_temp', 'f4', ('time', 'x', 'y'))
     temp.long_name = 'near-surface air temperature'
-    temp.units     = 'degC'
+    temp.units = 'degC'
 
     # create precipitation variable
     prec = nc.createVariable('precipitation', 'f4', ('time', 'x', 'y'))
     prec.long_name = 'ice-equivalent precipitation rate'
-    prec.units     = "m yr-1"
+    prec.units = "m yr-1"
 
     # assign coordinate values
     lx = ly = 750000
     xvar[:] = np.linspace(-lx, lx, len(xdim))
     yvar[:] = np.linspace(-ly, ly, len(ydim))
     tvar[:] = np.arange(len(tdim))
-    tboundsvar[:,0] = tvar[:]
-    tboundsvar[:,1] = tvar[:]+1
+    tboundsvar[:, 0] = tvar[:]
+    tboundsvar[:, 1] = tvar[:]+1
 
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
     for i in range(len(tdim)):
-      temp[i] = -10 * yy/ly - 5 * cos(i*2*pi/12)
-      prec[i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
+        temp[i] = -10 * yy/ly - 5 * cos(i*2*pi/12)
+        prec[i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
 
     # close netcdf file
     nc.close()
@@ -323,61 +322,61 @@ def make_fake_climate(filename):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
-      description='''A Python Positive Degree Day (PDD) model
-        for glacier surface mass balance''',
-      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        description='''A Python Positive Degree Day (PDD) model
+            for glacier surface mass balance''',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-i', '--input', metavar='input.nc',
-      help='input file')
+                        help='input file')
     parser.add_argument('-o', '--output', metavar='output.nc',
-      help='output file',
-      default='smb.nc')
+                        help='output file',
+                        default='smb.nc')
     parser.add_argument('-b', '--big', action='store_true',
-      help='produce big output (more variables)')
+                        help='produce big output (more variables)')
     parser.add_argument('--pdd-factor-snow', metavar='F', type=float,
-      help='PDD factor for snow',
-      default=default_pdd_factor_snow)
+                        help='PDD factor for snow',
+                        default=default_pdd_factor_snow)
     parser.add_argument('--pdd-factor-ice', metavar='F', type=float,
-      help='PDD factor for ice',
-      default=default_pdd_factor_ice)
+                        help='PDD factor for ice',
+                        default=default_pdd_factor_ice)
     parser.add_argument('--pdd-refreeze', metavar='R', type=float,
-      help='PDD model refreezing fraction',
-      default=default_pdd_refreeze)
+                        help='PDD model refreezing fraction',
+                        default=default_pdd_refreeze)
     parser.add_argument('--pdd-std-dev', metavar='S', type=float,
-      help='Use constant standard deviation of temperature')
+                        help='Use constant standard deviation of temperature')
     parser.add_argument('--temp-snow', metavar='T', type=float,
-      help='Temperature at which all precip is snow',
-      default=default_temp_snow)
+                        help='Temperature at which all precip is snow',
+                        default=default_temp_snow)
     parser.add_argument('--temp-rain', metavar='T', type=float,
-      help='Temperature at which all precip is rain',
-      default=default_temp_rain)
+                        help='Temperature at which all precip is rain',
+                        default=default_temp_rain)
     parser.add_argument('--integrate-rule',
-      help='Rule for integrations',
-      default = default_integrate_rule,
-      choices = ('rectangle', 'trapeze', 'simpson'))
+                        help='Rule for integrations',
+                        default=default_integrate_rule,
+                        choices=('rectangle', 'trapeze', 'simpson'))
     parser.add_argument('--interpolate-rule',
-      help='Rule for interpolations',
-      default = default_interpolate_rule,
-      choices = ('linear','nearest','zero','slinear','quadratic','cubic'))
+                        help='Rule for interpolations',
+                        default=default_interpolate_rule,
+                        choices=('linear', 'nearest', 'zero', 'slinear',
+                                 'quadratic', 'cubic'))
     parser.add_argument('--interpolate-n', metavar='N',
-      help='Number of points used in interpolations.',
-      default = default_interpolate_n)
+                        help='Number of points used in interpolations.',
+                        default=default_interpolate_n)
     args = parser.parse_args()
 
     # if no input file was given, prepare a dummy one
     if not args.input:
-      make_fake_climate('atm.nc')
+        make_fake_climate('atm.nc')
 
     # initiate PDD model
-    pdd=PDDModel(
-      pdd_factor_snow = args.pdd_factor_snow,
-      pdd_factor_ice  = args.pdd_factor_ice,
-      pdd_refreeze    = args.pdd_refreeze,
-      temp_snow       = args.temp_snow,
-      temp_rain       = args.temp_rain,
-      integrate_rule  = args.integrate_rule,
-      interpolate_rule= args.interpolate_rule,
-      interpolate_n   = args.interpolate_n)
+    pdd = PDDModel(pdd_factor_snow=args.pdd_factor_snow,
+                   pdd_factor_ice=args.pdd_factor_ice,
+                   pdd_refreeze=args.pdd_refreeze,
+                   temp_snow=args.temp_snow,
+                   temp_rain=args.temp_rain,
+                   integrate_rule=args.integrate_rule,
+                   interpolate_rule=args.interpolate_rule,
+                   interpolate_n=args.interpolate_n)
 
     # compute surface mass balance
-    pdd.nco(args.input or 'atm.nc', args.output, big=args.big, stdv=args.pdd_std_dev)
-
+    pdd.nco(args.input or 'atm.nc', args.output,
+            big=args.big, stdv=args.pdd_std_dev)
