@@ -187,8 +187,8 @@ class PDDModel():
         o = NC(output_file, 'w', format='NETCDF3_CLASSIC')
 
         # read input data
-        temp = i.variables['air_temp'][:]
-        prec = i.variables['precipitation'][:]
+        temp = i.variables['temp'][:]
+        prec = i.variables['prec'][:]
         if stdv is None:
             try:
                 stdv = i.variables['air_temp_stdev'][:]
@@ -197,11 +197,11 @@ class PDDModel():
 
         # convert to degC
         # TODO: handle unit conversion better
-        if i.variables['air_temp'].units == 'K':
+        if i.variables['temp'].units == 'K':
             temp = temp - 273.15
 
         # get dimensions tuple from temp variable
-        txydim = i.variables['air_temp'].dimensions
+        txydim = i.variables['temp'].dimensions
         xydim = txydim[1:]
 
         # create dimensions
@@ -292,15 +292,14 @@ def make_fake_climate(filename):
     tvar.bounds = 'time_bounds'
     tboundsvar = nc.createVariable('time_bounds', 'f4', ('time', 'nv'))
 
-    # create air temperature variable
-    temp = nc.createVariable('air_temp', 'f4', ('time', 'x', 'y'))
-    temp.long_name = 'near-surface air temperature'
-    temp.units = 'degC'
-
-    # create precipitation variable
-    prec = nc.createVariable('precipitation', 'f4', ('time', 'x', 'y'))
-    prec.long_name = 'ice-equivalent precipitation rate'
-    prec.units = "m yr-1"
+    # create temperature and precipitation variables
+    from ConfigParser import ConfigParser
+    config = ConfigParser()
+    config.read('names.ini')
+    for varname in ['temp', 'prec']:
+        var = nc.createVariable(varname, 'f4', ('time', 'x', 'y'))
+        var.long_name = config.get(varname, 'long_name')
+        var.units = config.get(varname, 'units')
 
     # assign coordinate values
     lx = ly = 750000
@@ -313,8 +312,8 @@ def make_fake_climate(filename):
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
     for i in range(len(tdim)):
-        temp[i] = -10 * yy/ly - 5 * cos(i*2*pi/12)
-        prec[i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
+        nc.variables['temp'][i] = -10 * yy/ly - 5 * cos(i*2*pi/12)
+        nc.variables['prec'][i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
 
     # close netcdf file
     nc.close()
