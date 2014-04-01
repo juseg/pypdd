@@ -358,7 +358,7 @@ if __name__ == "__main__":
                         default=default_interpolate_rule,
                         choices=('linear', 'nearest', 'zero', 'slinear',
                                  'quadratic', 'cubic'))
-    parser.add_argument('--interpolate-n', metavar='N',
+    parser.add_argument('--interpolate-n', type=int, metavar='N',
                         help='Number of points used in interpolations.',
                         default=default_interpolate_n)
     args = parser.parse_args()
