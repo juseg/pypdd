@@ -15,7 +15,7 @@ default_temp_snow = 0.
 default_temp_rain = 2.
 default_integrate_rule = 'rectangle'
 default_interpolate_rule = 'linear'
-default_interpolate_n = 53
+default_interpolate_n = 52
 
 
 # PDD model class
@@ -123,11 +123,13 @@ class PDDModel():
     def _interpolate(self, a):
         """Interpolate an array through one year"""
         from scipy.interpolate import interp1d
-        x = np.linspace(0, 1, 13)
-        y = np.append(a, [a[0]], axis=0)
-        newx = np.linspace(0, 1, self.interpolate_n)
-        newy = interp1d(x, y, kind=self.interpolate_rule, axis=0)(newx)
-        return newy[:-1]
+        rule = self.interpolate_rule
+        n = self.interpolate_n
+        x = (np.arange(14)-0.5) / 12.
+        y = np.vstack(([a[-1]], a, [a[0]]))
+        newx = (np.arange(n)+0.5) / n # change to 0.0 for PISM-like behaviour
+        newy = interp1d(x, y, kind=rule, axis=0)(newx)
+        return newy
 
     def inst_pdd(self, temp, stdv):
         """Compute instantaneous positive degree days from temperature"""
@@ -205,7 +207,7 @@ class PDDModel():
         xydim = txydim[1:]
 
         # create dimensions
-        o.createDimension(txydim[0], self.interpolate_n - 1)
+        o.createDimension(txydim[0], self.interpolate_n)
         for dimname in xydim:
             o.createDimension(dimname, len(i.dimensions[dimname]))
 
@@ -223,7 +225,7 @@ class PDDModel():
         var.long_name = 'time'
         var.standard_name = 'time'
         var.units = 'yr'
-        var[:] = np.arange(0.0, 1.0, 1.0/(self.interpolate_n - 1))
+        var[:] = (np.arange(self.interpolate_n)+0.5) / self.interpolate_n
 
         # run PDD model
         smb = self(temp, prec, stdv=stdv, big=big)
@@ -313,9 +315,9 @@ def make_fake_climate(filename):
     lx = ly = 750000
     xvar[:] = np.linspace(-lx, lx, len(xdim))
     yvar[:] = np.linspace(-ly, ly, len(ydim))
-    tvar[:] = np.linspace(0.0, 1.0, 13)[:-1]
-    tboundsvar[:, 0] = tvar[:]-1.0/24
-    tboundsvar[:, 1] = tvar[:]+1.0/24
+    tvar[:] = (np.arange(12)+0.5) / 12
+    tboundsvar[:, 0] = tvar[:] - 1.0/24
+    tboundsvar[:, 1] = tvar[:] + 1.0/24
 
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
