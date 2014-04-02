@@ -127,7 +127,7 @@ class PDDModel():
         n = self.interpolate_n
         x = (np.arange(14)-0.5) / 12.
         y = np.vstack(([a[-1]], a, [a[0]]))
-        newx = (np.arange(n)+0.5) / n # change to 0.0 for PISM-like behaviour
+        newx = (np.arange(n)+0.5) / n  # change to 0.0 for PISM-like behaviour
         newy = interp1d(x, y, kind=rule, axis=0)(newx)
         return newy
 
@@ -193,7 +193,7 @@ class PDDModel():
         prec = i.variables['prec'][:]
         if stdv is None:
             try:
-                stdv = i.variables['air_temp_stdev'][:]
+                stdv = i.variables['stdv'][:]
             except KeyError:
                 stdv = 0.
 
@@ -306,7 +306,7 @@ def make_fake_climate(filename):
     from ConfigParser import ConfigParser
     config = ConfigParser()
     config.read('names.ini')
-    for varname in ['temp', 'prec']:
+    for varname in ['temp', 'prec', 'stdv']:
         var = nc.createVariable(varname, 'f4', ('time', 'x', 'y'))
         var.long_name = config.get(varname, 'long_name')
         var.units = config.get(varname, 'units')
@@ -324,6 +324,7 @@ def make_fake_climate(filename):
     for i in range(len(tdim)):
         nc.variables['temp'][i] = -10 * yy/ly - 5 * cos(i*2*pi/12)
         nc.variables['prec'][i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
+        nc.variables['stdv'][i] = (2 + xx/lx - yy/ly) * (1 - cos(i*2*pi/12))
 
     # close netcdf file
     nc.close()
