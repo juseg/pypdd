@@ -209,13 +209,21 @@ class PDDModel():
         for dimname in xydim:
             o.createDimension(dimname, len(i.dimensions[dimname]))
 
-        # copy coordinates
+        # copy spatial coordinates
         for varname, ivar in i.variables.iteritems():
             if varname in xydim:
                 ovar = o.createVariable(varname, ivar.dtype, ivar.dimensions)
                 for attname in ivar.ncattrs():
                     setattr(ovar, attname, getattr(ivar, attname))
                 ovar[:] = ivar[:]
+
+        # create time coordinate
+        var = o.createVariable('time', 'f4', ('time',))
+        var.axis = 'T'
+        var.long_name = 'time'
+        var.standard_name = 'time'
+        var.units = 'yr'
+        var[:] = np.arange(0.0, 1.0, 1.0/(self.interpolate_n - 1))
 
         # run PDD model
         smb = self(temp, prec, stdv=stdv, big=big)
@@ -288,7 +296,7 @@ def make_fake_climate(filename):
     tvar.axis = 'T'
     tvar.long_name = 'time'
     tvar.standard_name = 'time'
-    tvar.units = 'month'
+    tvar.units = 'yr'
     tvar.bounds = 'time_bounds'
     tboundsvar = nc.createVariable('time_bounds', 'f4', ('time', 'nv'))
 
@@ -305,9 +313,9 @@ def make_fake_climate(filename):
     lx = ly = 750000
     xvar[:] = np.linspace(-lx, lx, len(xdim))
     yvar[:] = np.linspace(-ly, ly, len(ydim))
-    tvar[:] = np.arange(len(tdim))
-    tboundsvar[:, 0] = tvar[:]
-    tboundsvar[:, 1] = tvar[:]+1
+    tvar[:] = np.linspace(0.0, 1.0, 13)[:-1]
+    tboundsvar[:, 0] = tvar[:]-1.0/24
+    tboundsvar[:, 1] = tvar[:]+1.0/24
 
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
