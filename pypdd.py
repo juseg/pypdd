@@ -18,6 +18,66 @@ default_interpolate_rule = 'linear'
 default_interpolate_n = 52
 
 
+# Default variable names
+# ----------------------
+names = {
+
+    # climatic variables
+    'temp': {
+        'long_name': 'near-surface air temperature',
+        'units':     'degC'},
+    'prec': {
+        'long_name': 'ice-equivalent precipitation rate',
+        'units':     'm yr-1'},
+    'stdv': {
+        'long_name': 'standard deviation of near-surface air temperature',
+        'units':     'K'},
+
+    # cumulative quantities
+    'smb': {
+        'standard_name': 'land_ice_surface_specific_mass_balance',
+        'long_name': 'cumulative ice-equivalent surface mass balance',
+        'units':     'm yr-1'},
+    'pdd': {
+        'long_name': 'cumulative number of positive degree days',
+        'units':     'degC day'},
+    'accu': {
+        'long_name': 'cumulative ice-equivalent surface accumulation',
+        'units':     'm'},
+    'snow_melt': {
+        'long_name': 'cumulative ice-equivalent surface melt of snow',
+        'units':     'm'},
+    'ice_melt': {
+        'long_name': 'cumulative ice-equivalent surface melt of ice',
+        'units':     'm'},
+    'melt': {
+        'long_name': 'cumulative ice-equivalent surface melt',
+        'units':     'm'},
+    'runoff': {
+        'long_name': 'cumulative ice-equivalent surface meltwater runoff',
+        'units':     'm yr-1'},
+
+    # instantaneous quantities
+    'inst_pdd': {
+        'long_name': 'instantaneous positive degree days',
+        'units':     'degC day'},
+    'accu_rate': {
+        'long_name': 'instantaneous ice-equivalent surface accumulation rate',
+        'units':     'm yr-1'},
+    'snow_melt_rate': {
+        'long_name': 'instantaneous ice-equivalent surface melt rate of snow',
+        'units':     'm yr-1'},
+    'ice_melt_rate': {
+        'long_name': 'instantaneous ice-equivalent surface melt rate of ice',
+        'units':     'm yr-1'},
+    'melt_rate': {
+        'long_name': 'instantaneous ice-equivalent surface melt rate',
+        'units':     'm yr-1'},
+    'snow_depth': {
+        'long_name': 'depth of snow cover',
+        'units':     'm'}}
+
+
 # PDD model class
 # ---------------
 
@@ -231,14 +291,11 @@ class PDDModel():
         smb = self(temp, prec, stdv=stdv, big=big)
 
         # create surface mass balance variable
-        from ConfigParser import ConfigParser
-        config = ConfigParser()
-        config.read('names.ini')
         for varname in ['smb']:
             var = o.createVariable(varname, 'f4', xydim)
-            var.long_name = config.get(varname, 'long_name')
-            var.standard_name = config.get(varname, 'standard_name')
-            var.units = config.get(varname, 'units')
+            var.standard_name = names[varname]['standard_name']
+            var.long_name = names[varname]['long_name']
+            var.units = names[varname]['units']
             var[:] = smb['smb'] if big else smb
 
         # create more variables for 'big' output
@@ -246,15 +303,15 @@ class PDDModel():
             for varname in ['pdd', 'accu', 'snow_melt', 'ice_melt', 'melt',
                             'runoff']:
                 var = o.createVariable(varname, 'f4', xydim)
-                var.long_name = config.get(varname, 'long_name')
-                var.units = config.get(varname, 'units')
+                var.long_name = names[varname]['long_name']
+                var.units = names[varname]['units']
                 var[:] = smb[varname]
             for varname in ['temp', 'prec', 'stdv', 'inst_pdd', 'accu_rate',
                             'snow_melt_rate', 'ice_melt_rate', 'melt_rate',
                             'snow_depth']:
                 var = o.createVariable(varname, 'f4', txydim)
-                var.long_name = config.get(varname, 'long_name')
-                var.units = config.get(varname, 'units')
+                var.long_name = names[varname]['long_name']
+                var.units = names[varname]['units']
                 var[:] = smb[varname]
 
         # close netcdf files
@@ -303,13 +360,10 @@ def make_fake_climate(filename):
     tboundsvar = nc.createVariable('time_bounds', 'f4', ('time', 'nv'))
 
     # create temperature and precipitation variables
-    from ConfigParser import ConfigParser
-    config = ConfigParser()
-    config.read('names.ini')
     for varname in ['temp', 'prec', 'stdv']:
         var = nc.createVariable(varname, 'f4', ('time', 'x', 'y'))
-        var.long_name = config.get(varname, 'long_name')
-        var.units = config.get(varname, 'units')
+        var.long_name = names[varname]['long_name']
+        var.units = names[varname]['units']
 
     # assign coordinate values
     lx = ly = 750000
