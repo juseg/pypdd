@@ -78,6 +78,13 @@ names = {
         'units':     'm'}}
 
 
+def _create_nc_variable(nc, varname, dtype, dimensions):
+    var = nc.createVariable(varname, dtype, dimensions)
+    for (attr, value) in names[varname].iteritems():
+        setattr(var, attr, value)
+    return var
+
+
 # PDD model class
 # ---------------
 
@@ -292,26 +299,19 @@ class PDDModel():
 
         # create surface mass balance variable
         for varname in ['smb']:
-            var = o.createVariable(varname, 'f4', xydim)
-            var.standard_name = names[varname]['standard_name']
-            var.long_name = names[varname]['long_name']
-            var.units = names[varname]['units']
+            var = _create_nc_variable(o, varname, 'f4', xydim)
             var[:] = smb['smb'] if big else smb
 
         # create more variables for 'big' output
         if big:
             for varname in ['pdd', 'accu', 'snow_melt', 'ice_melt', 'melt',
                             'runoff']:
-                var = o.createVariable(varname, 'f4', xydim)
-                var.long_name = names[varname]['long_name']
-                var.units = names[varname]['units']
+                var = _create_nc_variable(o, varname, 'f4', xydim)
                 var[:] = smb[varname]
             for varname in ['temp', 'prec', 'stdv', 'inst_pdd', 'accu_rate',
                             'snow_melt_rate', 'ice_melt_rate', 'melt_rate',
                             'snow_depth']:
-                var = o.createVariable(varname, 'f4', txydim)
-                var.long_name = names[varname]['long_name']
-                var.units = names[varname]['units']
+                var = _create_nc_variable(o, varname, 'f4', txydim)
                 var[:] = smb[varname]
 
         # close netcdf files
@@ -361,9 +361,7 @@ def make_fake_climate(filename):
 
     # create temperature and precipitation variables
     for varname in ['temp', 'prec', 'stdv']:
-        var = nc.createVariable(varname, 'f4', ('time', 'x', 'y'))
-        var.long_name = names[varname]['long_name']
-        var.units = names[varname]['units']
+        var = _create_nc_variable(nc, varname, 'f4', ('time', 'x', 'y'))
 
     # assign coordinate values
     lx = ly = 750000
