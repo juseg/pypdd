@@ -22,6 +22,25 @@ default_interpolate_n = 52
 # ----------------------
 names = {
 
+    # coordinate variables
+    'x': {
+        'axis': 'X',
+        'long_name': 'x-coordinate in Cartesian system',
+        'standard_name': 'projection_x_coordinate',
+        'units': 'm'},
+    'y': {
+        'axis': 'Y',
+        'long_name': 'y-coordinate in Cartesian system',
+        'standard_name': 'projection_y_coordinate',
+        'units': 'm'},
+    'time': {
+        'axis': 'T',
+        'long_name': 'time',
+        'standard_name': 'time',
+        'bounds': 'time_bounds',
+        'units': 'yr'},
+    'time_bounds': {},
+
     # climatic variables
     'temp': {
         'long_name': 'near-surface air temperature',
@@ -287,11 +306,7 @@ class PDDModel():
                 ovar[:] = ivar[:]
 
         # create time coordinate
-        var = o.createVariable('time', 'f4', ('time',))
-        var.axis = 'T'
-        var.long_name = 'time'
-        var.standard_name = 'time'
-        var.units = 'yr'
+        var = _create_nc_variable(o, 'time', 'f4', ('time',))
         var[:] = (np.arange(self.interpolate_n)+0.5) / self.interpolate_n
 
         # run PDD model
@@ -336,28 +351,11 @@ def make_fake_climate(filename):
     ydim = nc.createDimension('y', 201)
     ndim = nc.createDimension('nv', 2)
 
-    # create x coordinate variable
-    xvar = nc.createVariable('x', 'f4', ('x',))
-    xvar.axis = 'X'
-    xvar.long_name = 'x-coordinate in Cartesian system'
-    xvar.standard_name = 'projection_x_coordinate'
-    xvar.units = 'm'
-
-    # create y coordinate variable
-    yvar = nc.createVariable('y', 'f4', ('y',))
-    yvar.axis = 'Y'
-    yvar.long_name = 'y-coordinate in Cartesian system'
-    yvar.standard_name = 'projection_y_coordinate'
-    yvar.units = 'm'
-
-    # create time coordinate and time bounds
-    tvar = nc.createVariable('time', 'f4', ('time',))
-    tvar.axis = 'T'
-    tvar.long_name = 'time'
-    tvar.standard_name = 'time'
-    tvar.units = 'yr'
-    tvar.bounds = 'time_bounds'
-    tboundsvar = nc.createVariable('time_bounds', 'f4', ('time', 'nv'))
+    # create coordinates and time bounds
+    xvar = _create_nc_variable(nc, 'x', 'f4', ('x',))
+    yvar = _create_nc_variable(nc, 'y', 'f4', ('y',))
+    tvar = _create_nc_variable(nc, 'time', 'f4', ('time',))
+    tboundsvar = _create_nc_variable(nc, 'time_bounds', 'f4', ('time', 'nv'))
 
     # create temperature and precipitation variables
     for varname in ['temp', 'prec', 'stdv']:
