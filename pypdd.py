@@ -216,7 +216,6 @@ class PDDModel():
 
     def inst_pdd(self, temp, stdv):
         """Compute instantaneous positive degree days from temperature"""
-        from math import pi, sqrt
         from scipy.special import erfc
 
         # positive part of temperature
@@ -225,8 +224,8 @@ class PDDModel():
 
         # Calov and Greve (2005) integrand
         def calovgreve(temp, stdv):
-            z = temp / (sqrt(2)*stdv)
-            return stdv / sqrt(2*pi) * np.exp(-z**2) + temp/2 * erfc(-z)
+            z = temp / (np.sqrt(2)*stdv)
+            return stdv / np.sqrt(2*np.pi) * np.exp(-z**2) + temp/2 * erfc(-z)
 
         # use positive part where sigma is zero and Calov and Greve elsewhere
         teff = np.where(stdv == 0., positivepart(temp), calovgreve(temp, stdv))
@@ -340,7 +339,6 @@ class PDDModel():
 
 def make_fake_climate(filename):
     """Create an artificial temperature and precipitation file"""
-    from math import cos, pi
     from netCDF4 import Dataset as NC
 
     # open netcdf file
@@ -373,9 +371,9 @@ def make_fake_climate(filename):
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
     for i in range(len(tdim)):
-        nc.variables['temp'][i] = -10 * yy/ly - 5 * cos(i*2*pi/12)
-        nc.variables['prec'][i] = xx/lx * (np.sign(xx) - cos(i*2*pi/12))
-        nc.variables['stdv'][i] = (2 + xx/lx - yy/ly) * (1 - cos(i*2*pi/12))
+        nc.variables['temp'][i] = -10 * yy/ly - 5 * np.cos(i*2*np.pi/12)
+        nc.variables['prec'][i] = xx/lx * (np.sign(xx) - np.cos(i*2*np.pi/12))
+        nc.variables['stdv'][i] = (2+xx/lx-yy/ly) * (1-np.cos(i*2*np.pi/12))
 
     # close netcdf file
     nc.close()
