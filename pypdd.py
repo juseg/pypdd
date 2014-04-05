@@ -390,11 +390,15 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', metavar='output.nc',
                         help='output file',
                         default='smb.nc')
+    parser.add_argument('-l', '--list-variables',
+                        help='list possible output variables and exit',
+                        action='store_true')
     parser.add_argument('-s', '--output-size', metavar='SIZE',
                         help='size of output file, unless -v is used',
                         choices=('small', 'medium', 'big'), default='small')
     parser.add_argument('-v', '--output-variables', metavar='VARS', nargs='+',
-                        help='list of output variables', choices=names.keys())
+                        help='output variables (-l for a list)',
+                        choices=names.keys())
     parser.add_argument('--pdd-factor-snow', metavar='F', type=float,
                         help='PDD factor for snow',
                         default=default_pdd_factor_snow)
@@ -425,6 +429,15 @@ if __name__ == "__main__":
                         help='Number of points used in interpolations.',
                         default=default_interpolate_n)
     args = parser.parse_args()
+
+    # if asked, list output variables and exit
+    if args.list_variables:
+        print 'currently available output variables:'
+        for varname, vardict in sorted(names.iteritems()):
+            if varname != 'time_bounds':
+                print '  %-16s %s' % (varname, vardict['long_name'])
+        import sys
+        sys.exit()
 
     # if no input file was given, prepare a dummy one
     if not args.input:
