@@ -264,7 +264,7 @@ class PDDModel():
         return (snow_melt, ice_melt)
 
     def nco(self, input_file, output_file, stdv=None,
-            output_variables=None):
+            output_size='small', output_variables=None):
         """NetCDF operator"""
         from netCDF4 import Dataset as NC
 
@@ -309,6 +309,18 @@ class PDDModel():
 
         # run PDD model
         smb = self(temp, prec, stdv=stdv)
+
+        # if output_variables was not defined, use output_size
+        if output_variables is None:
+            output_variables = ['pdd', 'smb']
+            if output_size in ('medium', 'big'):
+                output_variables += ['accu', 'snow_melt', 'ice_melt', 'melt',
+                                     'runoff']
+            if output_size in ('big'):
+                output_variables += ['temp', 'prec', 'stdv', 'inst_pdd',
+                                     'accu_rate', 'snow_melt_rate',
+                                     'ice_melt_rate', 'melt_rate',
+                                     'snow_depth']
 
         # write output variables
         for varname in output_variables:
@@ -379,9 +391,11 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', metavar='output.nc',
                         help='output file',
                         default='smb.nc')
-    parser.add_argument('-v', '--output-variables', metavar='V1,V2,V3,...',
-                        help='Comma-separated list of output variables',
-                        default='pdd,smb')
+    parser.add_argument('-s', '--output-size', metavar='SIZE',
+                        help='size of output file, unless -v is used',
+                        choices=('small', 'medium', 'big'), default='small')
+    parser.add_argument('-v', '--output-variables', metavar='VARS', nargs='+',
+                        help='list of output variables', choices=names.keys())
     parser.add_argument('--pdd-factor-snow', metavar='F', type=float,
                         help='PDD factor for snow',
                         default=default_pdd_factor_snow)
@@ -429,5 +443,5 @@ if __name__ == "__main__":
 
     # compute surface mass balance
     pdd.nco(args.input or 'atm.nc', args.output,
-            stdv=args.pdd_std_dev,
-            output_variables=args.output_variables.split(','))
+            stdv=args.pdd_std_dev, output_size=args.output_size,
+            output_variables=args.output_variables)
