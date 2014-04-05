@@ -131,7 +131,7 @@ class PDDModel():
         self.interpolate_rule = interpolate_rule
         self.interpolate_n = interpolate_n
 
-    def __call__(self, temp, prec, stdv=0., big=False):
+    def __call__(self, temp, prec, stdv=0.):
         """Run the PDD model"""
 
         # interpolate time-series
@@ -171,25 +171,22 @@ class PDDModel():
         smb = accu - runoff
 
         # output
-        if big:
-            return dict(temp=newtemp,
-                        prec=newprec,
-                        stdv=newstdv,
-                        inst_pdd=inst_pdd,
-                        accu_rate=accu_rate,
-                        snow_melt_rate=snow_melt_rate,
-                        ice_melt_rate=ice_melt_rate,
-                        melt_rate=melt_rate,
-                        snow_depth=snow_depth,
-                        pdd=pdd,
-                        accu=accu,
-                        snow_melt=snow_melt,
-                        ice_melt=ice_melt,
-                        melt=melt,
-                        runoff=runoff,
-                        smb=smb)
-        else:
-            return smb
+        return dict(temp=newtemp,
+                    prec=newprec,
+                    stdv=newstdv,
+                    inst_pdd=inst_pdd,
+                    accu_rate=accu_rate,
+                    snow_melt_rate=snow_melt_rate,
+                    ice_melt_rate=ice_melt_rate,
+                    melt_rate=melt_rate,
+                    snow_depth=snow_depth,
+                    pdd=pdd,
+                    accu=accu,
+                    snow_melt=snow_melt,
+                    ice_melt=ice_melt,
+                    melt=melt,
+                    runoff=runoff,
+                    smb=smb)
 
     def _integrate(self, a):
         """Integrate an array over one year"""
@@ -266,7 +263,8 @@ class PDDModel():
         # return melt rates
         return (snow_melt, ice_melt)
 
-    def nco(self, input_file, output_file, big=False, stdv=None):
+    def nco(self, input_file, output_file, stdv=None,
+            output_variables=None):
         """NetCDF operator"""
         from netCDF4 import Dataset as NC
 
@@ -310,24 +308,15 @@ class PDDModel():
         var[:] = (np.arange(self.interpolate_n)+0.5) / self.interpolate_n
 
         # run PDD model
-        smb = self(temp, prec, stdv=stdv, big=big)
+        smb = self(temp, prec, stdv=stdv)
 
-        # create surface mass balance variable
-        for varname in ['smb']:
-            var = _create_nc_variable(o, varname, 'f4', xydim)
-            var[:] = smb['smb'] if big else smb
-
-        # create more variables for 'big' output
-        if big:
-            for varname in ['pdd', 'accu', 'snow_melt', 'ice_melt', 'melt',
-                            'runoff']:
-                var = _create_nc_variable(o, varname, 'f4', xydim)
-                var[:] = smb[varname]
-            for varname in ['temp', 'prec', 'stdv', 'inst_pdd', 'accu_rate',
-                            'snow_melt_rate', 'ice_melt_rate', 'melt_rate',
-                            'snow_depth']:
-                var = _create_nc_variable(o, varname, 'f4', txydim)
-                var[:] = smb[varname]
+        # write output variables
+        for varname in output_variables:
+            if varname not in smb:
+                raise KeyError("%s is not a valid variable name" % varname)
+            dim = (txydim if smb[varname].ndim == 3 else xydim)
+            var = _create_nc_variable(o, varname, 'f4', dim)
+            var[:] = smb[varname]
 
         # close netcdf files
         i.close()
@@ -349,7 +338,7 @@ def make_fake_climate(filename):
     tdim = nc.createDimension('time', 12)
     xdim = nc.createDimension('x', 201)
     ydim = nc.createDimension('y', 201)
-    ndim = nc.createDimension('nv', 2)
+    nc.createDimension('nv', 2)
 
     # create coordinates and time bounds
     xvar = _create_nc_variable(nc, 'x', 'f4', ('x',))
@@ -359,7 +348,7 @@ def make_fake_climate(filename):
 
     # create temperature and precipitation variables
     for varname in ['temp', 'prec', 'stdv']:
-        var = _create_nc_variable(nc, varname, 'f4', ('time', 'x', 'y'))
+        _create_nc_variable(nc, varname, 'f4', ('time', 'x', 'y'))
 
     # assign coordinate values
     lx = ly = 750000
@@ -390,8 +379,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', metavar='output.nc',
                         help='output file',
                         default='smb.nc')
-    parser.add_argument('-b', '--big', action='store_true',
-                        help='produce big output (more variables)')
+    parser.add_argument('-v', '--output-variables', metavar='V1,V2,V3,...',
+                        help='Comma-separated list of output variables',
+                        default='pdd,smb')
     parser.add_argument('--pdd-factor-snow', metavar='F', type=float,
                         help='PDD factor for snow',
                         default=default_pdd_factor_snow)
@@ -439,4 +429,5 @@ if __name__ == "__main__":
 
     # compute surface mass balance
     pdd.nco(args.input or 'atm.nc', args.output,
-            big=args.big, stdv=args.pdd_std_dev)
+            stdv=args.pdd_std_dev,
+            output_variables=args.output_variables.split(','))

@@ -21,7 +21,7 @@ Provided two arrays ``temp`` and ``prec`` of dimension ``(12, x, y)`` and contai
 
   pdd(temp, prec)
 
-will return an array of dimension ``(x, y)`` containing the calculated mass balance.
+will return positive degree day ``'pdd'`` and surface mass balance ``'smb'`` arrays of dimension ``(x, y)`` in a dictionary.
 
 NetCDF interface
 ----------------
