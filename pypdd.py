@@ -3,6 +3,7 @@
 """A Python Positive Degree Day (PDD) model for glacier surface mass balance"""
 
 import numpy as np
+from scipy.special import erfc
 
 
 # Default model parameters
@@ -218,19 +219,17 @@ class PDDModel():
 
     def inst_pdd(self, temp, stdv):
         """Compute instantaneous positive degree days from temperature"""
-        from scipy.special import erfc
 
-        # positive part of temperature
-        def positivepart(temp):
-            return np.greater(temp, 0)*temp
+        # compute positive part of temperature everywhere
+        positivepart = np.greater(temp, 0)*temp
 
-        # Calov and Greve (2005) integrand
-        def calovgreve(temp, stdv):
+        # compute Calov and Greve (2005) integrand, ignoring division by zero
+        with np.errstate(divide='ignore', invalid='ignore'):
             z = temp / (np.sqrt(2)*stdv)
-            return stdv / np.sqrt(2*np.pi) * np.exp(-z**2) + temp/2 * erfc(-z)
+        calovgreve = stdv/np.sqrt(2*np.pi)*np.exp(-z**2) + temp/2*erfc(-z)
 
         # use positive part where sigma is zero and Calov and Greve elsewhere
-        teff = np.where(stdv == 0., positivepart(temp), calovgreve(temp, stdv))
+        teff = np.where(stdv == 0., positivepart, calovgreve)
 
         # convert to degree-days
         return teff*365.242198781
