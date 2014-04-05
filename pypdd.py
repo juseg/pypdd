@@ -92,6 +92,12 @@ names = {
     'melt_rate': {
         'long_name': 'instantaneous ice-equivalent surface melt rate',
         'units':     'm yr-1'},
+    'runoff_rate': {
+        'long_name': 'instantaneous ice-equivalent surface runoff rate',
+        'units':     'm yr-1'},
+    'inst_smb': {
+        'long_name': 'instantaneous ice-equivalent surface mass balance',
+        'units':     'm yr-1'},
     'snow_depth': {
         'long_name': 'depth of snow cover',
         'units':     'm'}}
@@ -131,28 +137,29 @@ class PDDModel():
         self.interpolate_rule = interpolate_rule
         self.interpolate_n = interpolate_n
 
-    def __call__(self, temp, prec, stdv=0.):
+    def __call__(self, temp, prec, stdv=0.0):
         """Run the PDD model"""
-
-        # interpolate time-series
-        newtemp = self._interpolate(temp)
-        newprec = self._interpolate(prec)
 
         # expand stdv
         if type(stdv) == float:
-            newstdv = np.ones_like(newtemp) * stdv
-        else:
-            newstdv = self._interpolate(stdv)
+            stdv = np.ones_like(temp) * stdv
+
+        # interpolate time-series
+        temp = self._interpolate(temp)
+        prec = self._interpolate(prec)
+        stdv = self._interpolate(stdv)
 
         # compute accumulation and pdd
-        accu_rate = self.accu_rate(newtemp, newprec)
-        inst_pdd = self.inst_pdd(newtemp, newstdv)
+        accu_rate = self.accu_rate(temp, prec)
+        inst_pdd = self.inst_pdd(temp, stdv)
+
+        # initialize snow depth and melt rates
+        snow_depth = np.zeros_like(temp)
+        snow_melt_rate = np.zeros_like(temp)
+        ice_melt_rate = np.zeros_like(temp)
 
         # compute snow depth and melt rates
-        snow_depth = np.zeros_like(newtemp)
-        snow_melt_rate = np.zeros_like(newtemp)
-        ice_melt_rate = np.zeros_like(newtemp)
-        for i in range(len(newtemp)):
+        for i in range(len(temp)):
             if i > 0:
                 snow_depth[i] = snow_depth[i-1]
             snow_depth[i] += accu_rate[i]
@@ -160,33 +167,28 @@ class PDDModel():
                 snow_depth[i], inst_pdd[i])
             snow_depth[i] -= snow_melt_rate[i]
         melt_rate = snow_melt_rate + ice_melt_rate
-
-        # compute comulative quantities
-        pdd = self._integrate(inst_pdd)
-        accu = self._integrate(accu_rate)
-        snow_melt = self._integrate(snow_melt_rate)
-        ice_melt = self._integrate(ice_melt_rate)
-        melt = snow_melt + ice_melt
-        runoff = melt - self.pdd_refreeze * melt
-        smb = accu - runoff
+        runoff_rate = melt_rate - self.pdd_refreeze * melt_rate
+        inst_smb = accu_rate - runoff_rate
 
         # output
-        return dict(temp=newtemp,
-                    prec=newprec,
-                    stdv=newstdv,
-                    inst_pdd=inst_pdd,
-                    accu_rate=accu_rate,
-                    snow_melt_rate=snow_melt_rate,
-                    ice_melt_rate=ice_melt_rate,
-                    melt_rate=melt_rate,
-                    snow_depth=snow_depth,
-                    pdd=pdd,
-                    accu=accu,
-                    snow_melt=snow_melt,
-                    ice_melt=ice_melt,
-                    melt=melt,
-                    runoff=runoff,
-                    smb=smb)
+        return {'temp':           temp,
+                'prec':           prec,
+                'stdv':           stdv,
+                'inst_pdd':       inst_pdd,
+                'accu_rate':      accu_rate,
+                'snow_melt_rate': snow_melt_rate,
+                'ice_melt_rate':  ice_melt_rate,
+                'melt_rate':      melt_rate,
+                'runoff_rate':    runoff_rate,
+                'inst_smb':       inst_smb,
+                'snow_depth':     snow_depth,
+                'pdd':            self._integrate(inst_pdd),
+                'accu':           self._integrate(accu_rate),
+                'snow_melt':      self._integrate(snow_melt_rate),
+                'ice_melt':       self._integrate(ice_melt_rate),
+                'melt':           self._integrate(melt_rate),
+                'runoff':         self._integrate(runoff_rate),
+                'smb':            self._integrate(inst_smb)}
 
     def _integrate(self, a):
         """Integrate an array over one year"""
@@ -319,7 +321,7 @@ class PDDModel():
                 output_variables += ['temp', 'prec', 'stdv', 'inst_pdd',
                                      'accu_rate', 'snow_melt_rate',
                                      'ice_melt_rate', 'melt_rate',
-                                     'snow_depth']
+                                     'runoff_rate', 'inst_smb', 'snow_depth']
 
         # write output variables
         for varname in output_variables:
