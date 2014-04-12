@@ -9,14 +9,15 @@ from scipy.special import erfc
 # Default model parameters
 # ------------------------
 
-default_pdd_factor_snow = 0.003
-default_pdd_factor_ice = 0.008
-default_pdd_refreeze = 0.6
-default_temp_snow = 0.
-default_temp_rain = 2.
-default_integrate_rule = 'rectangle'
-default_interpolate_rule = 'linear'
-default_interpolate_n = 52
+defaults = {
+    'pdd_factor_snow':  0.003,
+    'pdd_factor_ice':   0.008,
+    'pdd_refreeze':     0.6,
+    'temp_snow':        0.0,
+    'temp_rain':        2.0,
+    'integrate_rule':   'rectangle',
+    'interpolate_rule': 'linear',
+    'interpolate_n':    52}
 
 
 # Default variable names
@@ -118,14 +119,14 @@ class PDDModel():
     """A Positive Degree Day (PDD) model for glacier surface mass balance"""
 
     def __init__(self,
-                 pdd_factor_snow=default_pdd_factor_snow,
-                 pdd_factor_ice=default_pdd_factor_ice,
-                 pdd_refreeze=default_pdd_refreeze,
-                 temp_snow=default_temp_snow,
-                 temp_rain=default_temp_rain,
-                 integrate_rule=default_integrate_rule,
-                 interpolate_rule=default_interpolate_rule,
-                 interpolate_n=default_interpolate_n):
+                 pdd_factor_snow=defaults['pdd_factor_snow'],
+                 pdd_factor_ice=defaults['pdd_factor_ice'],
+                 pdd_refreeze=defaults['pdd_refreeze'],
+                 temp_snow=defaults['temp_snow'],
+                 temp_rain=defaults['temp_rain'],
+                 integrate_rule=defaults['integrate_rule'],
+                 interpolate_rule=defaults['interpolate_rule'],
+                 interpolate_n=defaults['interpolate_n']):
         """Initiate a PDD model with given parameters"""
 
         # set pdd model parameters
@@ -401,33 +402,33 @@ if __name__ == "__main__":
                         choices=names.keys())
     parser.add_argument('--pdd-factor-snow', metavar='F', type=float,
                         help='PDD factor for snow',
-                        default=default_pdd_factor_snow)
+                        default=defaults['pdd_factor_snow'])
     parser.add_argument('--pdd-factor-ice', metavar='F', type=float,
                         help='PDD factor for ice',
-                        default=default_pdd_factor_ice)
+                        default=defaults['pdd_factor_ice'])
     parser.add_argument('--pdd-refreeze', metavar='R', type=float,
                         help='PDD model refreezing fraction',
-                        default=default_pdd_refreeze)
+                        default=defaults['pdd_refreeze'])
     parser.add_argument('--pdd-std-dev', metavar='S', type=float,
                         help='Use constant standard deviation of temperature')
     parser.add_argument('--temp-snow', metavar='T', type=float,
                         help='Temperature at which all precip is snow',
-                        default=default_temp_snow)
+                        default=defaults['temp_snow'])
     parser.add_argument('--temp-rain', metavar='T', type=float,
                         help='Temperature at which all precip is rain',
-                        default=default_temp_rain)
+                        default=defaults['temp_rain'])
     parser.add_argument('--integrate-rule',
                         help='Rule for integrations',
-                        default=default_integrate_rule,
+                        default=defaults['integrate_rule'],
                         choices=('rectangle', 'trapeze', 'simpson'))
     parser.add_argument('--interpolate-rule',
                         help='Rule for interpolations',
-                        default=default_interpolate_rule,
+                        default=defaults['interpolate_rule'],
                         choices=('linear', 'nearest', 'zero', 'slinear',
                                  'quadratic', 'cubic'))
     parser.add_argument('--interpolate-n', type=int, metavar='N',
                         help='Number of points used in interpolations.',
-                        default=default_interpolate_n)
+                        default=defaults['interpolate_n'])
     args = parser.parse_args()
 
     # if asked, list output variables and exit
