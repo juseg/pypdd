@@ -142,9 +142,16 @@ class PDDModel():
     def __call__(self, temp, prec, stdv=0.0):
         """Run the PDD model"""
 
-        # expand stdv
-        if type(stdv) == float:
-            stdv = np.ones_like(temp) * stdv
+        # ensure numpy arrays
+        temp = np.asarray(temp)
+        prec = np.asarray(prec)
+        stdv = np.asarray(stdv)
+
+        # expand arrays to the largest shape
+        maxshape = max(temp.shape, prec.shape, stdv.shape)
+        temp = self._expand(temp, maxshape)
+        prec = self._expand(prec, maxshape)
+        stdv = self._expand(stdv, maxshape)
 
         # interpolate time-series
         temp = self._interpolate(temp)
@@ -191,6 +198,18 @@ class PDDModel():
                 'melt':           self._integrate(melt_rate),
                 'runoff':         self._integrate(runoff_rate),
                 'smb':            self._integrate(inst_smb)}
+
+    def _expand(self, a, shape):
+        """Expand an array to the given shape"""
+        if a.shape == shape:
+            return a
+        elif a.shape == shape[1:]:
+            return np.asarray([a]*12)
+        elif a.shape == ():
+            return a * np.ones(shape)
+        else:
+            raise ValueError('could not expand array of shape %s to %s'
+                             % (a.shape, shape))
 
     def _integrate(self, a):
         """Integrate an array over one year"""
