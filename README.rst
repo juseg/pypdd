@@ -15,7 +15,7 @@ A PDD model instance can be created by::
   from pypdd import PDDModel
   pdd = PDDModel()
 
-Provided two arrays ``temp`` and ``prec`` of dimension ``(12, x, y)`` and containing monthly temperature and precipitation data,
+Provided two arrays ``temp`` and ``prec`` of dimension ``(t, x, y)`` and containing temperature and precipitation data,
 
 ::
 
@@ -32,7 +32,7 @@ A NetCDF operator can be called by::
 
   pdd.nco('input.nc', 'output.nc')
 
-The file ``input.nc`` should contain monthly temperatures and precipitation in variables ``air_temp`` and ``precipitation`` and the calculated surface mass balance is stored as ``climatic_mass_balance`` in ``output.nc``.
+The file ``input.nc`` should contain temperatures and precipitation in variables ``air_temp`` and ``precipitation`` and the calculated surface mass balance is stored as ``climatic_mass_balance`` in ``output.nc``.
 
 Alternatively the module can be executed as a script::
 

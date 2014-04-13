@@ -176,7 +176,7 @@ class PDDModel():
             Input standard deviation of near-surface air temperature in Kelvin.
 
         By default, inputs are N-dimensional arrays whose first dimension is
-        interpreted as time, and should hold 12 records. Arrays of dimensions
+        interpreted as time and as periodic. Arrays of dimensions
         N-1 are interpreted as constant in time and expanded to N dimensions.
         Arrays of dimension 0 and numbers are interpreted as constant in time
         and space and will be expanded too. The largest input array determines
@@ -248,7 +248,7 @@ class PDDModel():
         if a.shape == shape:
             return a
         elif a.shape == shape[1:]:
-            return np.asarray([a]*12)
+            return np.asarray([a]*shape[0])
         elif a.shape == ():
             return a * np.ones(shape)
         else:
@@ -275,7 +275,7 @@ class PDDModel():
         from scipy.interpolate import interp1d
         rule = self.interpolate_rule
         n = self.interpolate_n
-        x = (np.arange(14)-0.5) / 12.
+        x = (np.arange(len(a)+2)-0.5) / len(a)
         y = np.vstack(([a[-1]], a, [a[0]]))
         newx = (np.arange(n)+0.5) / n  # change to 0.0 for PISM-like behaviour
         newy = interp1d(x, y, kind=rule, axis=0)(newx)
