@@ -106,6 +106,7 @@ names = {
 
 
 def _create_nc_variable(nc, varname, dtype, dimensions):
+    """Create netCDF variable and apply default attributes"""
     var = nc.createVariable(varname, dtype, dimensions)
     for (attr, value) in names[varname].iteritems():
         setattr(var, attr, value)
@@ -116,7 +117,29 @@ def _create_nc_variable(nc, varname, dtype, dimensions):
 # ---------------
 
 class PDDModel():
-    """A Positive Degree Day (PDD) model for glacier surface mass balance"""
+    """Return a callable Positive Degree Day (PDD) model instance.
+
+    Model parameters are held as public attributes, and can be set using
+    corresponding keyword arguments at initialization time:
+
+    *pdd_factor_snow* : float
+        Positive degree-day factor for snow.
+    *pdd_factor_ice* : float
+        Positive degree-day factor for ice.
+    *pdd_refreeze* : float
+        Positive degree-day model refreezing fraction.
+    *temp_snow* : float
+        Temperature at which all precipitation falls as snow.
+    *temp_rain* : float
+        Temperature at which all precipitation falls as rain.
+    *integrate_rule* : [ 'linear' | 'nearest' | 'zero' |
+                         'slinear' | 'quadratic' | 'cubic' ]
+        Integration rule passed to `scipy.interpolate.interp1d`.
+    *interpolate_rule*: [ 'rectangle' | 'trapeze' | 'simpson' ]
+        Interpolation rule.
+    *interpolate_n*: int
+        Number of points used in interpolations.
+    """
 
     def __init__(self,
                  pdd_factor_snow=defaults['pdd_factor_snow'],
@@ -127,7 +150,6 @@ class PDDModel():
                  integrate_rule=defaults['integrate_rule'],
                  interpolate_rule=defaults['interpolate_rule'],
                  interpolate_n=defaults['interpolate_n']):
-        """Initiate a PDD model with given parameters"""
 
         # set pdd model parameters
         self.pdd_factor_snow = pdd_factor_snow
@@ -140,7 +162,29 @@ class PDDModel():
         self.interpolate_n = interpolate_n
 
     def __call__(self, temp, prec, stdv=0.0):
-        """Run the PDD model"""
+        """Run the positive degree day model.
+
+        Use temperature, precipitation, and standard deviation of temperature
+        to compute the number of positive degree days, accumulation and melt
+        surface mass fluxes, and the resulting surface mass balance.
+
+        *temp*: array_like
+            Input near-surface air temperature in degrees Celcius.
+        *prec*: array_like
+            Input precipitation rate in meter per year.
+        *stdv*: array_like
+            Input standard deviation of near-surface air temperature in Kelvin.
+
+        By default, inputs are N-dimensional arrays whose first dimension is
+        interpreted as time, and should hold 12 records. Arrays of dimensions
+        N-1 are interpreted as constant in time and expanded to N dimensions.
+        Arrays of dimension 0 and numbers are interpreted as constant in time
+        and space and will be expanded too. The largest input array determines
+        the number of dimensions N.
+
+        Return the number of positive degree days ('pdd'), surface mass balance
+        ('smb'), and many other output variables in a dictionary.
+        """
 
         # ensure numpy arrays
         temp = np.asarray(temp)
@@ -227,7 +271,7 @@ class PDDModel():
             return simps(a, axis=0, dx=dx)
 
     def _interpolate(self, a):
-        """Interpolate an array through one year"""
+        """Interpolate an array through one year."""
         from scipy.interpolate import interp1d
         rule = self.interpolate_rule
         n = self.interpolate_n
@@ -238,7 +282,17 @@ class PDDModel():
         return newy
 
     def inst_pdd(self, temp, stdv):
-        """Compute instantaneous positive degree days from temperature"""
+        """Compute instantaneous positive degree days from temperature.
+
+        Use near-surface air temperature and standard deviation to compute
+        instantaneous positive degree days (effective temperature for melt,
+        unit degrees C) using an integral formulation (Calov and Greve, 2005).
+
+        *temp*: array_like
+            Near-surface air temperature in degrees Celcius.
+        *stdv*: array_like
+            Standard deviation of near-surface air temperature in Kelvin.
+        """
 
         # compute positive part of temperature everywhere
         positivepart = np.greater(temp, 0)*temp
@@ -255,7 +309,17 @@ class PDDModel():
         return teff*365.242198781
 
     def accu_rate(self, temp, prec):
-        """Compute accumulation rate from temperature and precipitation"""
+        """Compute accumulation rate from temperature and precipitation.
+
+        The fraction of precipitation that falls as snow decreases linearly
+        from one to zero between temperature thresholds defined by the
+        `temp_snow` and `temp_rain` attributes.
+
+        *temp*: array_like
+            Near-surface air temperature in degrees Celcius.
+        *prec*: array_like
+            Precipitation rate in meter per year.
+        """
 
         # compute snow fraction as a function of temperature
         reduced_temp = (self.temp_rain-temp)/(self.temp_rain-self.temp_snow)
@@ -265,7 +329,17 @@ class PDDModel():
         return snowfrac*prec
 
     def melt_rates(self, snow, pdd):
-        """Compute melt rate from snow precipitation and pdd sum"""
+        """Compute melt rates from snow precipitation and pdd sum.
+
+        Snow melt is computed from the number of positive degree days (*pdd*)
+        and the `pdd_factor_snow` model attribute. If all snow is melted and
+        some energy (PDD) remains, ice melt is computed using `pdd_factor_ice`.
+
+        *snow*: array_like
+            Snow precipitation rate.
+        *pdd*: array_like
+            Number of positive degree days.
+        """
 
         # parse model parameters for readability
         ddf_snow = self.pdd_factor_snow
@@ -285,7 +359,35 @@ class PDDModel():
 
     def nco(self, input_file, output_file, stdv=None,
             output_size='small', output_variables=None):
-        """NetCDF operator"""
+        """NetCDF operator.
+
+        Read near-surface air temperature, precipitation rate, and standard
+        deviation of near-surface air temperature from *input_file*, compute
+        number of positive degree days and surface mass balance, and write
+        results in *output_file*.
+
+        *input_file*: str
+            Name of input netCDF file. The input file should contain
+            near-surface air temperature in variable 'temp', precipitation rate
+            in variable 'prec', and optionally, standard deviation of
+            near-surface air temperature in variable 'stdv'. If variable 'stdv'
+            is not provided, and argument *stdv* is None, a constant value of
+            zero is used.
+        *outut_file*: str
+            Name of output netCDF file.
+        *stdv*: number
+            Force constant value for standard deviation of near-surface air
+            temperature. Ignore variable 'stdv' in input file.
+        *output_size*: ['small', 'medium', 'big']
+            Control which variables are written in the output file. If 'small',
+            export only the number of positive degree days and total surface
+            mass balance. If 'medium', export all cumulative (time-independent)
+            variables. If 'big', output all cumulative and instantaneous
+            (time-dependent) variables computed by the model.
+        *output_variables*: list of str
+            List of output variables to write in the output file. Prevails
+            over any choice of *output_size*.
+        """
         from netCDF4 import Dataset as NC
 
         # open netcdf files
@@ -359,7 +461,17 @@ class PDDModel():
 # ----------------------
 
 def make_fake_climate(filename):
-    """Create an artificial temperature and precipitation file"""
+    """Create an artificial temperature and precipitation file.
+
+    This function is used if pypdd.py is called as a script without an input
+    file. The file produced contains an idealized, three-dimensional (t, x, y)
+    distribution of near-surface air temperature, precipitation rate and
+    standard deviation of near-surface air temperature to be read by
+    `PDDModel.nco`.
+
+    filename: str
+        Name of output file.
+    """
     from netCDF4 import Dataset as NC
 
     # open netcdf file
@@ -399,11 +511,11 @@ def make_fake_climate(filename):
     # close netcdf file
     nc.close()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(
-        description='''A Python Positive Degree Day (PDD) model
-            for glacier surface mass balance''',
+        description='A Python Positive Degree Day (PDD) model'
+                    'for glacier surface mass balance.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-i', '--input', metavar='input.nc',
                         help='input file')
