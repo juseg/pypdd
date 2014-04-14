@@ -3,7 +3,6 @@
 """A Python Positive Degree Day (PDD) model for glacier surface mass balance"""
 
 import numpy as np
-from scipy.special import erfc
 
 
 # Default model parameters
@@ -15,7 +14,6 @@ defaults = {
     'pdd_refreeze':     0.6,
     'temp_snow':        0.0,
     'temp_rain':        2.0,
-    'integrate_rule':   'rectangle',
     'interpolate_rule': 'linear',
     'interpolate_n':    52}
 
@@ -132,11 +130,9 @@ class PDDModel():
         Temperature at which all precipitation falls as snow.
     *temp_rain* : float
         Temperature at which all precipitation falls as rain.
-    *integrate_rule* : [ 'linear' | 'nearest' | 'zero' |
-                         'slinear' | 'quadratic' | 'cubic' ]
-        Integration rule passed to `scipy.interpolate.interp1d`.
-    *interpolate_rule*: [ 'rectangle' | 'trapeze' | 'simpson' ]
-        Interpolation rule.
+    *interpolate_rule* : [ 'linear' | 'nearest' | 'zero' |
+                           'slinear' | 'quadratic' | 'cubic' ]
+        Interpolation rule passed to `scipy.interpolate.interp1d`.
     *interpolate_n*: int
         Number of points used in interpolations.
     """
@@ -147,7 +143,6 @@ class PDDModel():
                  pdd_refreeze=defaults['pdd_refreeze'],
                  temp_snow=defaults['temp_snow'],
                  temp_rain=defaults['temp_rain'],
-                 integrate_rule=defaults['integrate_rule'],
                  interpolate_rule=defaults['interpolate_rule'],
                  interpolate_n=defaults['interpolate_n']):
 
@@ -157,7 +152,6 @@ class PDDModel():
         self.pdd_refreeze = pdd_refreeze
         self.temp_snow = temp_snow
         self.temp_rain = temp_rain
-        self.integrate_rule = integrate_rule
         self.interpolate_rule = interpolate_rule
         self.interpolate_n = interpolate_n
 
@@ -257,18 +251,7 @@ class PDDModel():
 
     def _integrate(self, a):
         """Integrate an array over one year"""
-        rule = self.integrate_rule
-        dx = 1./(self.interpolate_n-1)
-        if rule == 'rectangle':
-            return np.sum(a, axis=0)*dx
-        if rule == 'trapeze':
-            from scipy.integrate import trapz
-            a = np.append(a, [a[0]], axis=0)
-            return trapz(a, axis=0, dx=dx)
-        if rule == 'simpson':
-            from scipy.integrate import simps
-            a = np.append(a, [a[0]], axis=0)
-            return simps(a, axis=0, dx=dx)
+        return np.sum(a, axis=0)/(self.interpolate_n-1)
 
     def _interpolate(self, a):
         """Interpolate an array through one year."""
@@ -293,6 +276,7 @@ class PDDModel():
         *stdv*: array_like
             Standard deviation of near-surface air temperature in Kelvin.
         """
+        from scipy.special import erfc
 
         # compute positive part of temperature everywhere
         positivepart = np.greater(temp, 0)*temp
@@ -514,7 +498,7 @@ def make_fake_climate(filename):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(
-        description='A Python Positive Degree Day (PDD) model'
+        description='A Python Positive Degree Day (PDD) model '
                     'for glacier surface mass balance.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-i', '--input', metavar='input.nc',
@@ -548,10 +532,6 @@ if __name__ == '__main__':
     parser.add_argument('--temp-rain', metavar='T', type=float,
                         help='Temperature at which all precip is rain',
                         default=defaults['temp_rain'])
-    parser.add_argument('--integrate-rule',
-                        help='Rule for integrations',
-                        default=defaults['integrate_rule'],
-                        choices=('rectangle', 'trapeze', 'simpson'))
     parser.add_argument('--interpolate-rule',
                         help='Rule for interpolations',
                         default=defaults['interpolate_rule'],
@@ -581,7 +561,6 @@ if __name__ == '__main__':
                    pdd_refreeze=args.pdd_refreeze,
                    temp_snow=args.temp_snow,
                    temp_rain=args.temp_rain,
-                   integrate_rule=args.integrate_rule,
                    interpolate_rule=args.interpolate_rule,
                    interpolate_n=args.interpolate_n)
 
