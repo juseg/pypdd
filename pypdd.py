@@ -160,7 +160,7 @@ class PDDModel():
         self.interpolate_rule = interpolate_rule
         self.interpolate_n = interpolate_n
 
-    def __call__(self, temp, prec, stdv=0.0):
+    def __call__(self, temp, prec, stdv):
         """Run the positive degree day model.
 
         Use temperature, precipitation, and standard deviation of temperature
@@ -347,7 +347,7 @@ class PDDModel():
         # return melt rates
         return (snow_melt, ice_melt)
 
-    def nco(self, input_file, output_file, stdv=None,
+    def nco(self, input_file, output_file,
             output_size='small', output_variables=None):
         """NetCDF operator.
 
@@ -365,9 +365,6 @@ class PDDModel():
             zero is used.
         *outut_file*: str
             Name of output netCDF file.
-        *stdv*: number
-            Force constant value for standard deviation of near-surface air
-            temperature. Ignore variable 'stdv' in input file.
         *output_size*: ['small', 'medium', 'big']
             Control which variables are written in the output file. If 'small',
             export only the number of positive degree days and total surface
@@ -384,14 +381,27 @@ class PDDModel():
         i = NC(input_file, 'r')
         o = NC(output_file, 'w', format='NETCDF3_CLASSIC')
 
-        # read input data
-        temp = i.variables['temp'][:]
-        prec = i.variables['prec'][:]
-        if stdv is None:
-            try:
-                stdv = i.variables['stdv'][:]
-            except KeyError:
-                stdv = 0.
+        # read input temperature data
+        try:
+            temp = i.variables['temp'][:]
+        except KeyError:
+            raise KeyError('could not find input variable %s (%s) in file %s.'
+                           % ('temp', names['temp']['long_name'], input_file))
+
+        # read input precipitation data
+        try:
+            prec = i.variables['prec'][:]
+        except KeyError:
+            raise KeyError('could not find input variable %s (%s) in file %s.'
+                           % ('prec', names['prec']['long_name'], input_file))
+
+        # read input standard deviation, warn and use zero if absent
+        try:
+            stdv = i.variables['stdv'][:]
+        except KeyError:
+            import warnings
+            warnings.warn('Variable stdv not found, assuming zero everywhere.')
+            stdv = 0.0
 
         # convert to degC
         # TODO: handle unit conversion better
@@ -533,8 +543,6 @@ if __name__ == '__main__':
     parser.add_argument('--refreeze-ice', metavar='R', type=float,
                         help='Refreezing fraction of melted ice',
                         default=defaults['refreeze_ice'])
-    parser.add_argument('--pdd-std-dev', metavar='S', type=float,
-                        help='Use constant standard deviation of temperature')
     parser.add_argument('--temp-snow', metavar='T', type=float,
                         help='Temperature at which all precip is snow',
                         default=defaults['temp_snow'])
@@ -576,5 +584,5 @@ if __name__ == '__main__':
 
     # compute surface mass balance
     pdd.nco(args.input or 'atm.nc', args.output,
-            stdv=args.pdd_std_dev, output_size=args.output_size,
+            output_size=args.output_size,
             output_variables=args.output_variables)

@@ -44,6 +44,14 @@ COPYRIGHT:   (c) 2013-2014 Julien Seguinot
 #% required: yes
 #% multiple: yes
 #%end
+#%option
+#% key: stdv
+#% type: string
+#% gisprompt: old,cell,raster
+#% description: Name of input precipitation raster maps
+#% required: no
+#% multiple: yes
+#%end
 
 #%option
 #% key: pdd
@@ -109,6 +117,7 @@ def main():
     # parse arguments
     temp_maps = options['temp'].split(',')
     prec_maps = options['prec'].split(',')
+    stdv_maps = options['stdv'].split(',')
 
     # read temperature maps
     grass.info('reading temperature maps...')
@@ -116,6 +125,7 @@ def main():
     for i, m in enumerate(temp_maps):
         temp[i].read(m)
         grass.percent(i, 12, 1)
+    temp = np.asarray(temp)
 
     # read precipitation maps
     grass.info('reading precipitation maps...')
@@ -123,13 +133,23 @@ def main():
     for i, m in enumerate(prec_maps):
         prec[i].read(m)
         grass.percent(i, 12, 1)
+    prec = np.asarray(prec)
+
+    # read standard deviation maps
+    if stdv_maps != ['']:
+        grass.info('reading standard deviation maps...')
+        stdv = [grass.array.array()] * 12
+        for i, m in enumerate(stdv_maps):
+            stdv[i].read(m)
+            grass.percent(i, 12, 1)
+        stdv = np.asarray(stdv)
+    else:
+        stdv = 0.0
 
     # run PDD model
     grass.info('running PDD model...')
-    temp = np.array(temp)
-    prec = np.array(prec)
     pdd = PDDModel()
-    smb = pdd(temp, prec)
+    smb = pdd(temp, prec, stdv)
 
     # write output maps
     grass.info('writing output maps...')
