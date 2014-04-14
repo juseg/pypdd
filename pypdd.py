@@ -247,6 +247,8 @@ class PDDModel():
         """Expand an array to the given shape"""
         if a.shape == shape:
             return a
+        elif a.shape == (1, shape[1], shape[2]):
+            return np.asarray([a[0]]*shape[0])
         elif a.shape == shape[1:]:
             return np.asarray([a]*shape[0])
         elif a.shape == ():

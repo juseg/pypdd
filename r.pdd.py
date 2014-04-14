@@ -103,10 +103,10 @@ COPYRIGHT:   (c) 2013-2014 Julien Seguinot
 #% required: no
 #%end
 
-import grass.script as grass
-from grass.script import array
-import numpy as np         # scientific module Numpy [1]
-from pypdd import PDDModel # positive degree day model PyPDD [2]
+from grass.script import core as grass
+from grass.script import array as garray
+import numpy as np          # scientific module Numpy [1]
+from pypdd import PDDModel  # positive degree day model PyPDD [2]
 
 
 ### Main function ###
@@ -119,29 +119,40 @@ def main():
     prec_maps = options['prec'].split(',')
     stdv_maps = options['stdv'].split(',')
 
+    # check that we have compatible number of input maps
+    ntemp = len(temp_maps)
+    nprec = len(prec_maps)
+    nstdv = len(stdv_maps)
+    if nprec not in (1, ntemp):
+        grass.fatal('Got %i prec maps, expected 1 (constant) or %i (as temp)'
+                    % (nprec, ntemp))
+    if nstdv not in (1, ntemp):
+        grass.fatal('Got %i stdv maps, expected 1 (constant) or %i (as temp)'
+                    % (nstdv, ntemp))
+
     # read temperature maps
     grass.info('reading temperature maps...')
-    temp = [grass.array.array()] * 12
+    temp = [garray.array()] * ntemp
     for i, m in enumerate(temp_maps):
         temp[i].read(m)
-        grass.percent(i, 12, 1)
+        grass.percent(i, ntemp, 1)
     temp = np.asarray(temp)
 
     # read precipitation maps
     grass.info('reading precipitation maps...')
-    prec = [grass.array.array()] * 12
+    prec = [garray.array()] * nprec
     for i, m in enumerate(prec_maps):
         prec[i].read(m)
-        grass.percent(i, 12, 1)
+        grass.percent(i, nprec, 1)
     prec = np.asarray(prec)
 
     # read standard deviation maps
     if stdv_maps != ['']:
         grass.info('reading standard deviation maps...')
-        stdv = [grass.array.array()] * 12
+        stdv = [garray.array()] * nstdv
         for i, m in enumerate(stdv_maps):
             stdv[i].read(m)
-            grass.percent(i, 12, 1)
+            grass.percent(i, nstdv, 1)
         stdv = np.asarray(stdv)
     else:
         stdv = 0.0
@@ -156,8 +167,9 @@ def main():
     for varname in ['pdd', 'accu', 'snow_melt', 'ice_melt', 'melt',
                     'runoff', 'smb']:
         if options[varname]:
-            a = grass.array.array()
+            a = garray.array()
             a[:] = smb[varname]
+
 
 ### Main program ###
 
