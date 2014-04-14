@@ -11,7 +11,8 @@ import numpy as np
 defaults = {
     'pdd_factor_snow':  0.003,
     'pdd_factor_ice':   0.008,
-    'pdd_refreeze':     0.6,
+    'refreeze_snow':    0.0,
+    'refreeze_ice':     0.0,
     'temp_snow':        0.0,
     'temp_rain':        2.0,
     'interpolate_rule': 'linear',
@@ -124,8 +125,10 @@ class PDDModel():
         Positive degree-day factor for snow.
     *pdd_factor_ice* : float
         Positive degree-day factor for ice.
-    *pdd_refreeze* : float
-        Positive degree-day model refreezing fraction.
+    *refreeze_snow* : float
+        Refreezing fraction of melted snow.
+    *refreeze_ice* : float
+        Refreezing fraction of melted ice.
     *temp_snow* : float
         Temperature at which all precipitation falls as snow.
     *temp_rain* : float
@@ -140,7 +143,8 @@ class PDDModel():
     def __init__(self,
                  pdd_factor_snow=defaults['pdd_factor_snow'],
                  pdd_factor_ice=defaults['pdd_factor_ice'],
-                 pdd_refreeze=defaults['pdd_refreeze'],
+                 refreeze_snow=defaults['refreeze_snow'],
+                 refreeze_ice=defaults['refreeze_ice'],
                  temp_snow=defaults['temp_snow'],
                  temp_rain=defaults['temp_rain'],
                  interpolate_rule=defaults['interpolate_rule'],
@@ -149,7 +153,8 @@ class PDDModel():
         # set pdd model parameters
         self.pdd_factor_snow = pdd_factor_snow
         self.pdd_factor_ice = pdd_factor_ice
-        self.pdd_refreeze = pdd_refreeze
+        self.refreeze_snow = refreeze_snow
+        self.refreeze_ice = refreeze_ice
         self.temp_snow = temp_snow
         self.temp_rain = temp_rain
         self.interpolate_rule = interpolate_rule
@@ -214,7 +219,8 @@ class PDDModel():
                 snow_depth[i], inst_pdd[i])
             snow_depth[i] -= snow_melt_rate[i]
         melt_rate = snow_melt_rate + ice_melt_rate
-        runoff_rate = melt_rate - self.pdd_refreeze * melt_rate
+        runoff_rate = melt_rate - self.refreeze_snow * snow_melt_rate \
+                                - self.refreeze_ice * ice_melt_rate
         inst_smb = accu_rate - runoff_rate
 
         # output
@@ -521,9 +527,12 @@ if __name__ == '__main__':
     parser.add_argument('--pdd-factor-ice', metavar='F', type=float,
                         help='PDD factor for ice',
                         default=defaults['pdd_factor_ice'])
-    parser.add_argument('--pdd-refreeze', metavar='R', type=float,
-                        help='PDD model refreezing fraction',
-                        default=defaults['pdd_refreeze'])
+    parser.add_argument('--refreeze-snow', metavar='R', type=float,
+                        help='Refreezing fraction of melted snow',
+                        default=defaults['refreeze_snow'])
+    parser.add_argument('--refreeze-ice', metavar='R', type=float,
+                        help='Refreezing fraction of melted ice',
+                        default=defaults['refreeze_ice'])
     parser.add_argument('--pdd-std-dev', metavar='S', type=float,
                         help='Use constant standard deviation of temperature')
     parser.add_argument('--temp-snow', metavar='T', type=float,
@@ -558,7 +567,8 @@ if __name__ == '__main__':
     # initiate PDD model
     pdd = PDDModel(pdd_factor_snow=args.pdd_factor_snow,
                    pdd_factor_ice=args.pdd_factor_ice,
-                   pdd_refreeze=args.pdd_refreeze,
+                   refreeze_snow=args.refreeze_snow,
+                   refreeze_ice=args.refreeze_ice,
                    temp_snow=args.temp_snow,
                    temp_rain=args.temp_rain,
                    interpolate_rule=args.interpolate_rule,
