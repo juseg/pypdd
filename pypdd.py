@@ -517,48 +517,60 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(
         description='A Python Positive Degree Day (PDD) model '
-                    'for glacier surface mass balance.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                    'for glacier surface mass balance.')
     parser.add_argument('-i', '--input', metavar='input.nc',
-                        help='input file')
+                        help='name of netCDF input file containing '
+                             'air temperature (temp), precipitation (prec), '
+                             '[and temperature standard deviation (stdv)]')
     parser.add_argument('-o', '--output', metavar='output.nc',
-                        help='output file',
+                        help='name of netCDF output file (default smb.nc)',
                         default='smb.nc')
     parser.add_argument('-l', '--list-variables',
                         help='list possible output variables and exit',
                         action='store_true')
     parser.add_argument('-s', '--output-size', metavar='SIZE',
-                        help='size of output file, unless -v is used',
+                        help='size of output file, '
+                             'ignored if -v/--output-variables is set '
+                             '(default small; other choices medium, big)',
                         choices=('small', 'medium', 'big'), default='small')
-    parser.add_argument('-v', '--output-variables', metavar='VARS', nargs='+',
-                        help='output variables (-l for a list)',
+    parser.add_argument('-v', '--output-variables', metavar='VAR', nargs='+',
+                        help='output variables (use -l to list choices)',
                         choices=names.keys())
-    parser.add_argument('--pdd-factor-snow', metavar='F', type=float,
-                        help='PDD factor for snow',
+    parser.add_argument('--pdd-factor-snow', metavar='FS', type=float,
+                        help='positive degree-day factor for snow '
+                             '(default %s)' % defaults['pdd_factor_snow'],
                         default=defaults['pdd_factor_snow'])
-    parser.add_argument('--pdd-factor-ice', metavar='F', type=float,
-                        help='PDD factor for ice',
+    parser.add_argument('--pdd-factor-ice', metavar='FI', type=float,
+                        help='positive degree-day factor for ice '
+                             '(default %s)' % defaults['pdd_factor_ice'],
                         default=defaults['pdd_factor_ice'])
-    parser.add_argument('--refreeze-snow', metavar='R', type=float,
-                        help='Refreezing fraction of melted snow',
+    parser.add_argument('--refreeze-snow', metavar='RS', type=float,
+                        help='refreezing fraction of melted snow '
+                             '(default %s)' % defaults['refreeze_snow'],
                         default=defaults['refreeze_snow'])
-    parser.add_argument('--refreeze-ice', metavar='R', type=float,
-                        help='Refreezing fraction of melted ice',
+    parser.add_argument('--refreeze-ice', metavar='RI', type=float,
+                        help='refreezing fraction of melted ice '
+                             '(default %s)' % defaults['refreeze_ice'],
                         default=defaults['refreeze_ice'])
-    parser.add_argument('--temp-snow', metavar='T', type=float,
-                        help='Temperature at which all precip is snow',
+    parser.add_argument('--temp-snow', metavar='TS', type=float,
+                        help='temperature at which all precip is snow '
+                             '(default %s)' % defaults['temp_snow'],
                         default=defaults['temp_snow'])
-    parser.add_argument('--temp-rain', metavar='T', type=float,
-                        help='Temperature at which all precip is rain',
+    parser.add_argument('--temp-rain', metavar='TI', type=float,
+                        help='temperature at which all precip is rain '
+                             '(default %s)' % defaults['temp_rain'],
                         default=defaults['temp_rain'])
-    parser.add_argument('--interpolate-rule',
-                        help='Rule for interpolations',
+    parser.add_argument('--interpolate-rule', metavar='R',
+                        help='rule used for time interpolations '
+                             '(default %s)' % defaults['interpolate_rule'],
                         default=defaults['interpolate_rule'],
                         choices=('linear', 'nearest', 'zero', 'slinear',
                                  'quadratic', 'cubic'))
     parser.add_argument('--interpolate-n', type=int, metavar='N',
-                        help='Number of points used in interpolations.',
+                        help='number of points used in interpolations '
+                             '(default %s)' % defaults['interpolate_n'],
                         default=defaults['interpolate_n'])
+
     args = parser.parse_args()
 
     # if asked, list output variables and exit
