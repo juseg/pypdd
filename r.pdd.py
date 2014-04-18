@@ -103,6 +103,56 @@ COPYRIGHT:   (c) 2013-2014 Julien Seguinot
 #% required: no
 #%end
 
+#%option
+#% key: pdd_factor_snow
+#% type: double
+#% description: Positive degree-day factor for snow
+#% required: no
+#%end
+#%option
+#% key: pdd_factor_ice
+#% type: double
+#% description: Positive degree-day factor for ice
+#% required: no
+#%end
+#%option
+#% key: refreeze_snow
+#% type: double
+#% description: Refreezing fraction of melted snow
+#% required: no
+#%end
+#%option
+#% key: refreeze_ice
+#% type: double
+#% description: Refreezing fraction of melted ice
+#% required: no
+#%end
+#%option
+#% key: temp_snow
+#% type: double
+#% description: Temperature at which all precipitation falls as snow
+#% required: no
+#%end
+#%option
+#% key: temp_rain
+#% type: double
+#% description: Temperature at which all precipitation falls as rain
+#% required: no
+#%end
+#%option
+#% key: interpolate_rule
+#% type: string
+#% description: Rule used for interpolations
+#% options: linear,nearest,zero,slinear,quadratic,cubic
+#% required: no
+#%end
+#%option
+#% key: interpolate_n
+#% type: integer
+#% description: Number of points used in interpolations
+#% required: no
+#%end
+
 from grass.script import core as grass
 from grass.script import array as garray
 import numpy as np          # scientific module Numpy [1]
@@ -157,9 +207,19 @@ def main():
     else:
         stdv = 0.0
 
+    # initialize PDD model
+    pdd = PDDModel()
+    for param in ('pdd_factor_snow', 'pdd_factor_ice',
+                  'refreeze_snow', 'refreeze_ice', 'temp_snow', 'temp_rain',
+                  'interpolate_rule', 'interpolate_n'):
+        if options[param]:
+            setattr(pdd, param, float(options[param]))
+    for param in ('interpolate_rule',):
+        if options[param]:
+            setattr(pdd, param, str(options[param]))
+
     # run PDD model
     grass.info('running PDD model...')
-    pdd = PDDModel()
     smb = pdd(temp, prec, stdv)
 
     # write output maps
