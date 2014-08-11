@@ -160,7 +160,7 @@ class PDDModel():
         self.interpolate_rule = interpolate_rule
         self.interpolate_n = interpolate_n
 
-    def __call__(self, temp, prec, stdv):
+    def __call__(self, temp, prec, stdv=0.0):
         """Run the positive degree day model.
 
         Use temperature, precipitation, and standard deviation of temperature
@@ -171,7 +171,7 @@ class PDDModel():
             Input near-surface air temperature in degrees Celcius.
         *prec*: array_like
             Input precipitation rate in meter per year.
-        *stdv*: array_like
+        *stdv*: array_like (default 0.0)
             Input standard deviation of near-surface air temperature in Kelvin.
 
         By default, inputs are N-dimensional arrays whose first dimension is
