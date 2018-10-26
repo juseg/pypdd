@@ -109,9 +109,9 @@ ATTRIBUTES = {
         'units':     'm'}}
 
 
-def _create_nc_variable(nc, varname, dtype, dimensions):
+def _create_nc_variable(dataset, varname, dtype, dimensions):
     """Create netCDF variable and apply default attributes"""
-    var = nc.createVariable(varname, dtype, dimensions)
+    var = dataset.createVariable(varname, dtype, dimensions)
     for (attr, value) in ATTRIBUTES[varname].items():
         setattr(var, attr, value)
     return var
@@ -248,33 +248,33 @@ class PDDModel():
                 'runoff':         self._integrate(runoff_rate),
                 'smb':            self._integrate(inst_smb)}
 
-    def _expand(self, a, shape):
+    def _expand(self, array, shape):
         """Expand an array to the given shape"""
-        if a.shape == shape:
-            return a
-        elif a.shape == (1, shape[1], shape[2]):
-            return np.asarray([a[0]]*shape[0])
-        elif a.shape == shape[1:]:
-            return np.asarray([a]*shape[0])
-        elif a.shape == ():
-            return a * np.ones(shape)
+        if array.shape == shape:
+            return array
+        elif array.shape == (1, shape[1], shape[2]):
+            return np.asarray([array[0]]*shape[0])
+        elif array.shape == shape[1:]:
+            return np.asarray([array]*shape[0])
+        elif array.shape == ():
+            return array * np.ones(shape)
         else:
             raise ValueError('could not expand array of shape %s to %s'
-                             % (a.shape, shape))
+                             % (array.shape, shape))
 
-    def _integrate(self, a):
+    def _integrate(self, array):
         """Integrate an array over one year"""
-        return np.sum(a, axis=0)/(self.interpolate_n-1)
+        return np.sum(array, axis=0)/(self.interpolate_n-1)
 
-    def _interpolate(self, a):
+    def _interpolate(self, array):
         """Interpolate an array through one year."""
         from scipy.interpolate import interp1d
         rule = self.interpolate_rule
-        n = self.interpolate_n
-        x = (np.arange(len(a)+2)-0.5) / len(a)
-        y = np.vstack(([a[-1]], a, [a[0]]))
-        newx = (np.arange(n)+0.5) / n  # change to 0.0 for PISM-like behaviour
-        newy = interp1d(x, y, kind=rule, axis=0)(newx)
+        npts = self.interpolate_n
+        oldx = (np.arange(len(array)+2)-0.5) / len(array)
+        oldy = np.vstack(([array[-1]], array, [array[0]]))
+        newx = (np.arange(npts)+0.5) / npts  # use 0.0 for PISM-like behaviour
+        newy = interp1d(oldx, oldy, kind=rule, axis=0)(newx)
         return newy
 
     def inst_pdd(self, temp, stdv):
@@ -296,8 +296,9 @@ class PDDModel():
 
         # compute Calov and Greve (2005) integrand, ignoring division by zero
         with np.errstate(divide='ignore', invalid='ignore'):
-            z = temp / (np.sqrt(2)*stdv)
-        calovgreve = stdv/np.sqrt(2*np.pi)*np.exp(-z**2) + temp/2*erfc(-z)
+            normtemp = temp / (np.sqrt(2)*stdv)
+        calovgreve = (stdv/np.sqrt(2*np.pi)*np.exp(-normtemp**2) +
+                      temp/2*erfc(-normtemp))
 
         # use positive part where sigma is zero and Calov and Greve elsewhere
         teff = np.where(stdv == 0., positivepart, calovgreve)
@@ -385,26 +386,26 @@ class PDDModel():
         from netCDF4 import Dataset as NC
 
         # open netcdf files
-        i = NC(input_file, 'r')
-        o = NC(output_file, 'w', format='NETCDF3_CLASSIC')
+        ids = NC(input_file, 'r')
+        ods = NC(output_file, 'w', format='NETCDF3_CLASSIC')
 
         # read input temperature data
         try:
-            temp = i.variables['temp'][:]
+            temp = ids.variables['temp'][:]
         except KeyError:
             raise KeyError('could not find input variable %s (%s) in file %s.'
                            % ('temp', ATTRIBUTES['temp']['long_name'], input_file))
 
         # read input precipitation data
         try:
-            prec = i.variables['prec'][:]
+            prec = ids.variables['prec'][:]
         except KeyError:
             raise KeyError('could not find input variable %s (%s) in file %s.'
                            % ('prec', ATTRIBUTES['prec']['long_name'], input_file))
 
         # read input standard deviation, warn and use zero if absent
         try:
-            stdv = i.variables['stdv'][:]
+            stdv = ids.variables['stdv'][:]
         except KeyError:
             import warnings
             warnings.warn('Variable stdv not found, assuming zero everywhere.')
@@ -412,28 +413,28 @@ class PDDModel():
 
         # convert to degC
         # TODO: handle unit conversion better
-        if i.variables['temp'].units == 'K':
+        if ids.variables['temp'].units == 'K':
             temp = temp - 273.15
 
         # get dimensions tuple from temp variable
-        txydim = i.variables['temp'].dimensions
+        txydim = ids.variables['temp'].dimensions
         xydim = txydim[1:]
 
         # create dimensions
-        o.createDimension(txydim[0], self.interpolate_n)
+        ods.createDimension(txydim[0], self.interpolate_n)
         for dimname in xydim:
-            o.createDimension(dimname, len(i.dimensions[dimname]))
+            ods.createDimension(dimname, len(ids.dimensions[dimname]))
 
         # copy spatial coordinates
-        for varname, ivar in i.variables.items():
+        for varname, ivar in ids.variables.items():
             if varname in xydim:
-                ovar = o.createVariable(varname, ivar.dtype, ivar.dimensions)
+                ovar = ods.createVariable(varname, ivar.dtype, ivar.dimensions)
                 for attname in ivar.ncattrs():
                     setattr(ovar, attname, getattr(ivar, attname))
                 ovar[:] = ivar[:]
 
         # create time coordinate
-        var = _create_nc_variable(o, 'time', 'f4', ('time',))
+        var = _create_nc_variable(ods, 'time', 'f4', ('time',))
         var[:] = (np.arange(self.interpolate_n)+0.5) / self.interpolate_n
 
         # run PDD model
@@ -456,12 +457,12 @@ class PDDModel():
             if varname not in smb:
                 raise KeyError("%s is not a valid variable name" % varname)
             dim = (txydim if smb[varname].ndim == 3 else xydim)
-            var = _create_nc_variable(o, varname, 'f4', dim)
+            var = _create_nc_variable(ods, varname, 'f4', dim)
             var[:] = smb[varname]
 
         # close netcdf files
-        i.close()
-        o.close()
+        ids.close()
+        ods.close()
 
 
 # Command-line interface
@@ -482,23 +483,23 @@ def make_fake_climate(filename):
     from netCDF4 import Dataset as NC
 
     # open netcdf file
-    nc = NC(filename, 'w')
+    ods = NC(filename, 'w')
 
     # create dimensions
-    tdim = nc.createDimension('time', 12)
-    xdim = nc.createDimension('x', 201)
-    ydim = nc.createDimension('y', 201)
-    nc.createDimension('nv', 2)
+    tdim = ods.createDimension('time', 12)
+    xdim = ods.createDimension('x', 201)
+    ydim = ods.createDimension('y', 201)
+    ods.createDimension('nv', 2)
 
     # create coordinates and time bounds
-    xvar = _create_nc_variable(nc, 'x', 'f4', ('x',))
-    yvar = _create_nc_variable(nc, 'y', 'f4', ('y',))
-    tvar = _create_nc_variable(nc, 'time', 'f4', ('time',))
-    tboundsvar = _create_nc_variable(nc, 'time_bounds', 'f4', ('time', 'nv'))
+    xvar = _create_nc_variable(ods, 'x', 'f4', ('x',))
+    yvar = _create_nc_variable(ods, 'y', 'f4', ('y',))
+    tvar = _create_nc_variable(ods, 'time', 'f4', ('time',))
+    tboundsvar = _create_nc_variable(ods, 'time_bounds', 'f4', ('time', 'nv'))
 
     # create temperature and precipitation variables
     for varname in ['temp', 'prec', 'stdv']:
-        _create_nc_variable(nc, varname, 'f4', ('time', 'x', 'y'))
+        _create_nc_variable(ods, varname, 'f4', ('time', 'x', 'y'))
 
     # assign coordinate values
     lx = ly = 750000
@@ -511,12 +512,12 @@ def make_fake_climate(filename):
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
     for i in range(len(tdim)):
-        nc.variables['temp'][i] = -10 * yy/ly - 5 * np.cos(i*2*np.pi/12)
-        nc.variables['prec'][i] = xx/lx * (np.sign(xx) - np.cos(i*2*np.pi/12))
-        nc.variables['stdv'][i] = (2+xx/lx-yy/ly) * (1-np.cos(i*2*np.pi/12))
+        ods.variables['temp'][i] = -10 * yy/ly - 5 * np.cos(i*2*np.pi/12)
+        ods.variables['prec'][i] = xx/lx * (np.sign(xx) - np.cos(i*2*np.pi/12))
+        ods.variables['stdv'][i] = (2+xx/lx-yy/ly) * (1-np.cos(i*2*np.pi/12))
 
     # close netcdf file
-    nc.close()
+    ods.close()
 
 def main():
     """Main program for command-line execution."""
