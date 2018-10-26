@@ -1,6 +1,10 @@
 #!/usr/bin/env python
+# Copyright (c) 2013--2018, Julien Seguinot <seguinot@vaw.baug.ethz.ch>
+# GNU General Public License v3.0+ (https://www.gnu.org/licenses/gpl-3.0.txt)
 
-"""A Python Positive Degree Day (PDD) model for glacier surface mass balance"""
+"""
+A Python Positive Degree Day (PDD) model for glacier surface mass balance
+"""
 
 import numpy as np
 
@@ -107,7 +111,7 @@ names = {
 def _create_nc_variable(nc, varname, dtype, dimensions):
     """Create netCDF variable and apply default attributes"""
     var = nc.createVariable(varname, dtype, dimensions)
-    for (attr, value) in names[varname].iteritems():
+    for (attr, value) in names[varname].items():
         setattr(var, attr, value)
     return var
 
@@ -420,7 +424,7 @@ class PDDModel():
             o.createDimension(dimname, len(i.dimensions[dimname]))
 
         # copy spatial coordinates
-        for varname, ivar in i.variables.iteritems():
+        for varname, ivar in i.variables.items():
             if varname in xydim:
                 ovar = o.createVariable(varname, ivar.dtype, ivar.dimensions)
                 for attname in ivar.ncattrs():
@@ -575,10 +579,10 @@ if __name__ == '__main__':
 
     # if asked, list output variables and exit
     if args.list_variables:
-        print 'currently available output variables:'
-        for varname, vardict in sorted(names.iteritems()):
+        print('currently available output variables:')
+        for varname, vardict in sorted(names.items()):
             if varname != 'time_bounds':
-                print '  %-16s %s' % (varname, vardict['long_name'])
+                print('  %-16s %s' % (varname, vardict['long_name']))
         import sys
         sys.exit()
 
