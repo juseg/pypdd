@@ -251,16 +251,17 @@ class PDDModel():
     def _expand(self, array, shape):
         """Expand an array to the given shape"""
         if array.shape == shape:
-            return array
+            res = array
         elif array.shape == (1, shape[1], shape[2]):
-            return np.asarray([array[0]]*shape[0])
+            res = np.asarray([array[0]]*shape[0])
         elif array.shape == shape[1:]:
-            return np.asarray([array]*shape[0])
+            res = np.asarray([array]*shape[0])
         elif array.shape == ():
-            return array * np.ones(shape)
+            res = array * np.ones(shape)
         else:
             raise ValueError('could not expand array of shape %s to %s'
                              % (array.shape, shape))
+        return res
 
     def _integrate(self, array):
         """Integrate an array over one year"""
@@ -289,7 +290,7 @@ class PDDModel():
         *stdv*: array_like
             Standard deviation of near-surface air temperature in Kelvin.
         """
-        from scipy.special import erfc
+        import scipy.special as sp
 
         # compute positive part of temperature everywhere
         positivepart = np.greater(temp, 0)*temp
@@ -298,7 +299,7 @@ class PDDModel():
         with np.errstate(divide='ignore', invalid='ignore'):
             normtemp = temp / (np.sqrt(2)*stdv)
         calovgreve = (stdv/np.sqrt(2*np.pi)*np.exp(-normtemp**2) +
-                      temp/2*erfc(-normtemp))
+                      temp/2*sp.erfc(-normtemp))
 
         # use positive part where sigma is zero and Calov and Greve elsewhere
         teff = np.where(stdv == 0., positivepart, calovgreve)
@@ -383,11 +384,11 @@ class PDDModel():
             List of output variables to write in the output file. Prevails
             over any choice of *output_size*.
         """
-        from netCDF4 import Dataset as NC
+        import netCDF4 as nc4
 
         # open netcdf files
-        ids = NC(input_file, 'r')
-        ods = NC(output_file, 'w', format='NETCDF3_CLASSIC')
+        ids = nc4.Dataset(input_file, 'r')
+        ods = nc4.Dataset(output_file, 'w', format='NETCDF3_CLASSIC')
 
         # read input temperature data
         try:
@@ -446,7 +447,7 @@ class PDDModel():
             if output_size in ('medium', 'big'):
                 output_variables += ['accu', 'snow_melt', 'ice_melt', 'melt',
                                      'runoff']
-            if output_size in ('big'):
+            if output_size == 'big':
                 output_variables += ['temp', 'prec', 'stdv', 'inst_pdd',
                                      'accu_rate', 'snow_melt_rate',
                                      'ice_melt_rate', 'melt_rate',
@@ -480,10 +481,10 @@ def make_fake_climate(filename):
     filename: str
         Name of output file.
     """
-    from netCDF4 import Dataset as NC
+    import netCDF4 as nc4
 
     # open netcdf file
-    ods = NC(filename, 'w')
+    ods = nc4.Dataset(filename, 'w')
 
     # create dimensions
     tdim = ods.createDimension('time', 12)

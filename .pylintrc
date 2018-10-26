@@ -1,2 +1,3 @@
 [ basic ]
+generated-members=nc4.Dataset,sp.erfc
 good-names = i, lx, ly, xx, yy
