@@ -12,7 +12,7 @@ import numpy as np
 # Default model parameters
 # ------------------------
 
-defaults = {
+PARAMETERS = {
     'pdd_factor_snow':  0.003,
     'pdd_factor_ice':   0.008,
     'refreeze_snow':    0.0,
@@ -23,9 +23,10 @@ defaults = {
     'interpolate_n':    52}
 
 
-# Default variable names
-# ----------------------
-names = {
+# Default variable attributes
+# ---------------------------
+
+ATTRIBUTES = {
 
     # coordinate variables
     'x': {
@@ -111,7 +112,7 @@ names = {
 def _create_nc_variable(nc, varname, dtype, dimensions):
     """Create netCDF variable and apply default attributes"""
     var = nc.createVariable(varname, dtype, dimensions)
-    for (attr, value) in names[varname].items():
+    for (attr, value) in ATTRIBUTES[varname].items():
         setattr(var, attr, value)
     return var
 
@@ -145,14 +146,14 @@ class PDDModel():
     """
 
     def __init__(self,
-                 pdd_factor_snow=defaults['pdd_factor_snow'],
-                 pdd_factor_ice=defaults['pdd_factor_ice'],
-                 refreeze_snow=defaults['refreeze_snow'],
-                 refreeze_ice=defaults['refreeze_ice'],
-                 temp_snow=defaults['temp_snow'],
-                 temp_rain=defaults['temp_rain'],
-                 interpolate_rule=defaults['interpolate_rule'],
-                 interpolate_n=defaults['interpolate_n']):
+                 pdd_factor_snow=PARAMETERS['pdd_factor_snow'],
+                 pdd_factor_ice=PARAMETERS['pdd_factor_ice'],
+                 refreeze_snow=PARAMETERS['refreeze_snow'],
+                 refreeze_ice=PARAMETERS['refreeze_ice'],
+                 temp_snow=PARAMETERS['temp_snow'],
+                 temp_rain=PARAMETERS['temp_rain'],
+                 interpolate_rule=PARAMETERS['interpolate_rule'],
+                 interpolate_n=PARAMETERS['interpolate_n']):
 
         # set pdd model parameters
         self.pdd_factor_snow = pdd_factor_snow
@@ -392,14 +393,14 @@ class PDDModel():
             temp = i.variables['temp'][:]
         except KeyError:
             raise KeyError('could not find input variable %s (%s) in file %s.'
-                           % ('temp', names['temp']['long_name'], input_file))
+                           % ('temp', ATTRIBUTES['temp']['long_name'], input_file))
 
         # read input precipitation data
         try:
             prec = i.variables['prec'][:]
         except KeyError:
             raise KeyError('could not find input variable %s (%s) in file %s.'
-                           % ('prec', names['prec']['long_name'], input_file))
+                           % ('prec', ATTRIBUTES['prec']['long_name'], input_file))
 
         # read input standard deviation, warn and use zero if absent
         try:
@@ -517,8 +518,12 @@ def make_fake_climate(filename):
     # close netcdf file
     nc.close()
 
-if __name__ == '__main__':
+def main():
+    """Main program for command-line execution."""
+
     import argparse
+
+    # parse arguments
     parser = argparse.ArgumentParser(
         description='A Python Positive Degree Day (PDD) model '
                     'for glacier surface mass balance.')
@@ -539,48 +544,47 @@ if __name__ == '__main__':
                         choices=('small', 'medium', 'big'), default='small')
     parser.add_argument('-v', '--output-variables', metavar='VAR', nargs='+',
                         help='output variables (use -l to list choices)',
-                        choices=names.keys())
+                        choices=ATTRIBUTES.keys())
     parser.add_argument('--pdd-factor-snow', metavar='FS', type=float,
                         help='positive degree-day factor for snow '
-                             '(default %s)' % defaults['pdd_factor_snow'],
-                        default=defaults['pdd_factor_snow'])
+                             '(default %s)' % PARAMETERS['pdd_factor_snow'],
+                        default=PARAMETERS['pdd_factor_snow'])
     parser.add_argument('--pdd-factor-ice', metavar='FI', type=float,
                         help='positive degree-day factor for ice '
-                             '(default %s)' % defaults['pdd_factor_ice'],
-                        default=defaults['pdd_factor_ice'])
+                             '(default %s)' % PARAMETERS['pdd_factor_ice'],
+                        default=PARAMETERS['pdd_factor_ice'])
     parser.add_argument('--refreeze-snow', metavar='RS', type=float,
                         help='refreezing fraction of melted snow '
-                             '(default %s)' % defaults['refreeze_snow'],
-                        default=defaults['refreeze_snow'])
+                             '(default %s)' % PARAMETERS['refreeze_snow'],
+                        default=PARAMETERS['refreeze_snow'])
     parser.add_argument('--refreeze-ice', metavar='RI', type=float,
                         help='refreezing fraction of melted ice '
-                             '(default %s)' % defaults['refreeze_ice'],
-                        default=defaults['refreeze_ice'])
+                             '(default %s)' % PARAMETERS['refreeze_ice'],
+                        default=PARAMETERS['refreeze_ice'])
     parser.add_argument('--temp-snow', metavar='TS', type=float,
                         help='temperature at which all precip is snow '
-                             '(default %s)' % defaults['temp_snow'],
-                        default=defaults['temp_snow'])
+                             '(default %s)' % PARAMETERS['temp_snow'],
+                        default=PARAMETERS['temp_snow'])
     parser.add_argument('--temp-rain', metavar='TI', type=float,
                         help='temperature at which all precip is rain '
-                             '(default %s)' % defaults['temp_rain'],
-                        default=defaults['temp_rain'])
+                             '(default %s)' % PARAMETERS['temp_rain'],
+                        default=PARAMETERS['temp_rain'])
     parser.add_argument('--interpolate-rule', metavar='R',
                         help='rule used for time interpolations '
-                             '(default %s)' % defaults['interpolate_rule'],
-                        default=defaults['interpolate_rule'],
+                             '(default %s)' % PARAMETERS['interpolate_rule'],
+                        default=PARAMETERS['interpolate_rule'],
                         choices=('linear', 'nearest', 'zero', 'slinear',
                                  'quadratic', 'cubic'))
     parser.add_argument('--interpolate-n', type=int, metavar='N',
                         help='number of points used in interpolations '
-                             '(default %s)' % defaults['interpolate_n'],
-                        default=defaults['interpolate_n'])
-
+                             '(default %s)' % PARAMETERS['interpolate_n'],
+                        default=PARAMETERS['interpolate_n'])
     args = parser.parse_args()
 
     # if asked, list output variables and exit
     if args.list_variables:
         print('currently available output variables:')
-        for varname, vardict in sorted(names.items()):
+        for varname, vardict in sorted(ATTRIBUTES.items()):
             if varname != 'time_bounds':
                 print('  %-16s %s' % (varname, vardict['long_name']))
         import sys
@@ -604,3 +608,7 @@ if __name__ == '__main__':
     pdd.nco(args.input or 'atm.nc', args.output,
             output_size=args.output_size,
             output_variables=args.output_variables)
+
+
+if __name__ == '__main__':
+    main()
