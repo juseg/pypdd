@@ -236,6 +236,7 @@ def main():
         if options[varname]:
             a = garray.array()
             a[:] = smb[varname]
+            a.write(mapname=options[varname])
 
 
 ### Main program ###
