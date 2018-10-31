@@ -1,7 +1,7 @@
 PyPDD
 =====
 
-A Python Positive Degree Day (PDD) model for glacier surface mass-balance.
+A Python positive degree day model for glacier surface mass balance.
 
 This module provides a simple model to compute accumulation and melt on a
 glacier using near-surface air temperature and precipitation time series. The

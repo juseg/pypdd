@@ -3,7 +3,7 @@
 # GNU General Public License v3.0+ (https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """
-A Python Positive Degree Day (PDD) model for glacier surface mass balance
+A positive degree day model for glacier surface mass balance
 """
 
 import numpy as np

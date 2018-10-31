@@ -1,0 +1,11 @@
+{
+    "title": "PyPDD: a positive degree day model for glacier surface mass balance",
+    "license": "GPL-3.0",
+    "creators": [
+        {
+            "name": "Julien Seguinot",
+            "orcid": "0000-0002-5315-0761",
+            "affiliation": "ETH Zurich and Hokkaido University"
+        }
+    ]
+}
