@@ -7,7 +7,7 @@ AUTHOR(S):   Julien Seguinot
 
 PURPOSE:     Positive Degree Day (PDD) model for glacier mass balance
 
-COPYRIGHT:   (c) 2013-2014 Julien Seguinot
+COPYRIGHT:   (c) 2013-2018 Julien Seguinot
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -179,6 +179,13 @@ def main():
     if nstdv not in (1, ntemp):
         grass.fatal('Got %i stdv maps, expected 1 (constant) or %i (as temp)'
                     % (nstdv, ntemp))
+
+    # exit if no output is requested
+    out_vars = ['pdd', 'accu', 'snow_melt', 'ice_melt', 'melt', 'runoff', 'smb']
+    out_maps = {var: options[var] for var in out_vars if options[var] != ''}
+    if len(out_maps) == 0:
+        grass.fatal('No output required. Please inform at least one of ' +
+                    ', '.join(out_vars) + '.')
 
     # read temperature maps
     grass.info('reading temperature maps...')
