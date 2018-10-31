@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright (c) 2013--2018, Julien Seguinot <seguinot@vaw.baug.ethz.ch>
+# GNU General Public License v3.0+ (https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """
 MODULE:      r.in.pdd
@@ -189,7 +191,7 @@ def main():
 
     # read temperature maps
     grass.info('reading temperature maps...')
-    temp = [garray.array()] * ntemp
+    temp = [garray.array() for m in temp_maps]
     for i, m in enumerate(temp_maps):
         temp[i].read(m)
         grass.percent(i, ntemp, 1)
@@ -197,7 +199,7 @@ def main():
 
     # read precipitation maps
     grass.info('reading precipitation maps...')
-    prec = [garray.array()] * nprec
+    prec = [garray.array() for m in temp_maps]
     for i, m in enumerate(prec_maps):
         prec[i].read(m)
         grass.percent(i, nprec, 1)
@@ -206,7 +208,7 @@ def main():
     # read standard deviation maps
     if stdv_maps != ['']:
         grass.info('reading standard deviation maps...')
-        stdv = [garray.array()] * nstdv
+        stdv = [garray.array() for m in stdv_maps]
         for i, m in enumerate(stdv_maps):
             stdv[i].read(m)
             grass.percent(i, nstdv, 1)
