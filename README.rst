@@ -1,6 +1,13 @@
 PyPDD
 =====
 
+.. image:: https://img.shields.io/pypi/v/pypdd.svg
+   :target: https://pypi.python.org/pypi/pypdd
+.. image:: https://img.shields.io/pypi/l/pypdd.svg
+   :target: https://www.gnu.org/licenses/gpl-3.0.txt
+.. image:: https://zenodo.org/badge/8483394.svg
+   :target: https://zenodo.org/badge/latestdoi/8483394
+
 A Python positive degree day model for glacier surface mass balance.
 
 This module provides a simple model to compute accumulation and melt on a
@@ -16,6 +23,10 @@ addition, it reads and writes netCDF_ files directly from the command line, and
 provides a raster module for `GRASS GIS`_. The PDD model is based on an
 algorithm that was initially developed for the `Parallel Ice Sheet Model`_ and
 adopted here with very few changes.
+
+Installation::
+
+   pip install pypdd
 
 
 The PDDModel class
