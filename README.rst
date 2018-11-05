@@ -106,32 +106,22 @@ maps. Alike any other GRASS module, a graphical prompt can be invoked by calling
 References
 ----------
 
-PyPDD was initially developed to study the effect of temperature variability in
-a PDD model. When using it, please refer to:
+Applications of PyPDD:
 
-* J. Seguinot (2013)
-  Correspondence. Spatial and seasonal effects of temperature variability in a
-  positive degree day surface melt model.
-  *J. Glaciol.*, 59(218):1202–1204,
-  doi:`10.3189/2013JoG13J081 <http://dx.doi.org/10.3189/2013JoG13J081>`_.
+* N. Gandy, L. J. Gregoire, J. C. Ely, C. D. Clark, D. M. Hodgson, V. Lee,
+  T. Bradwell, and R. F. Ivanovic.
+  Marine ice sheet instability and ice shelf buttressing influenced
+  deglaciation of the Minch ice stream, Northwest Scotland.
+  *The Cryosphere Discuss.*
+  doi:`10.5194/tc-2018-116 <https://doi.org/10.5194/tc-2018-116>`_,
+  in review, 2018.
 
-PDD modeling is a common technique in glaciology and several other fields. The
-fundamentals of the model implemented here are described in:
+* J. Seguinot.
+  Spatial and seasonal effects of temperature variability in a positive
+  degree-day glacier surface mass-balance model.
+  *J. Glaciol.*, 59(218):1202--1204,
+  doi:`10.3189/2013JoG13J081 <http://doi.org/10.3189/2013JoG13J081>`_, 2013.
 
-* R. Calov and R. Greve (2005)
-  Correspondence. A semi-analytical solution for the positive degree-day model
-  with stochastic temperature variations.
-  *J. Glaciol.*, 51(172):173–175,
-  doi:`10.3189/172756505781829601 <http://dx.doi.org/10.3189/172756505781829601>`_.
-
-* R Hock (2003)
-  Temperature index melt modelling in mountain areas.
-  *J. Hydrol.*, 282(1–4):104–115,
-  doi:`10.1016/S0022-1694(03)00257-9 <http://dx.doi.org/10.1016/S0022-1694(03)00257-9>`_.
-
-* R. J. Braithwaite (1984).
-  Calculation of degree-days for glacier-climate research.
-  *Z. Gletscherkd. Glazialgeol.*, 20:1–20.
 
 .. links
 
@@ -142,4 +132,3 @@ fundamentals of the model implemented here are described in:
 .. _Parallel Ice Sheet Model: http://www.pism-docs.org
 .. _PyPDD: https://github.com/jsegu/pypdd
 .. _SciPy: http://www.scipy.org
-
