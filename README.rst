@@ -110,17 +110,16 @@ Applications of PyPDD:
 
 * N. Gandy, L. J. Gregoire, J. C. Ely, C. D. Clark, D. M. Hodgson, V. Lee,
   T. Bradwell, and R. F. Ivanovic.
-  Marine ice sheet instability and ice shelf buttressing influenced
-  deglaciation of the Minch ice stream, Northwest Scotland.
-  *The Cryosphere Discuss.*
-  doi:`10.5194/tc-2018-116 <https://doi.org/10.5194/tc-2018-116>`_,
-  in review, 2018.
+  Marine ice sheet instability and ice shelf buttressing of the Minch Ice
+  Stream, northwest Scotland.
+  *The Cryosphere*, 12(11):3635--3651,
+  https://doi.org/10.5194/tc-12-3635-2018, 2018.
 
 * J. Seguinot.
   Spatial and seasonal effects of temperature variability in a positive
   degree-day glacier surface mass-balance model.
   *J. Glaciol.*, 59(218):1202--1204,
-  doi:`10.3189/2013JoG13J081 <http://doi.org/10.3189/2013JoG13J081>`_, 2013.
+  http://doi.org/10.3189/2013JoG13J081, 2013.
 
 
 .. links
