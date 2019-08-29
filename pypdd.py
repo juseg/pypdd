@@ -7,6 +7,7 @@ A positive degree day model for glacier surface mass balance
 """
 
 import numpy as np
+# comment
 
 
 # Default model parameters
@@ -414,7 +415,7 @@ class PDDModel():
 
         # convert to degC
         # TODO: handle unit conversion better
-        if ids.variables['temp'].units == 'K':
+        if ids.variables['temp'].units in ('K', 'Kelvin'):
             temp = temp - 273.15
 
         # get dimensions tuple from temp variable
