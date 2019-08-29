@@ -436,7 +436,7 @@ class PDDModel():
                 ovar[:] = ivar[:]
 
         # create time coordinate
-        var = _create_nc_variable(ods, 'time', 'f4', ('time',))
+        var = _create_nc_variable(ods, 'time', 'f4', txydim[0])
         var[:] = (np.arange(self.interpolate_n)+0.5) / self.interpolate_n
 
         # run PDD model
