@@ -76,13 +76,13 @@ days and total surface mass balance are stored in variables ``'pdd'`` and
 The netCDF interface can be used directly from the command line by executing the
 module as a script::
 
-   python2 pypdd.py -i 'input.nc' -o 'output.nc'
+   python pypdd.py -i 'input.nc' -o 'output.nc'
 
 If no input file is provided, an artificial climate will be generated under
 ``atm.nc`` and used by the model. By default, output is saved as ``smb.nc``.
 Many more command-line options are available. For an overview type::
 
-   python2 pypdd.py --help
+   python pypdd.py --help
 
 
 GRASS GIS interface
