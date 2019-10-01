@@ -115,6 +115,12 @@ Applications of PyPDD:
   *The Cryosphere*, 12(11):3635--3651,
   https://doi.org/10.5194/tc-12-3635-2018, 2018.
 
+* A. Plach, K. H. Nisancioglu, S. Le clec'h, A. Born, P. M. Langebroek, C. Guo,
+  M. Imhof, and T. F. Stocker.
+  Eemian Greenland SMB strongly sensitive to model choice.
+  *Clim. Past*, 14:1463--1485,
+  https://doi.org/10.5194/cp-14-1463-2018, 2018.
+
 * J. Seguinot.
   Spatial and seasonal effects of temperature variability in a positive
   degree-day glacier surface mass-balance model.

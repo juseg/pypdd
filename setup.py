@@ -11,7 +11,7 @@ with open('README.rst', 'r') as f:
 
 setuptools.setup(
     name='pypdd',
-    version='0.3.0',
+    version='0.3.1',
     author='Julien Seguinot',
     author_email='seguinot@vaw.baug.ethz.ch',
     description='A positive degree day model for glacier surface mass balance',
