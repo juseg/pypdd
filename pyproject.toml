@@ -1,0 +1,35 @@
+# Copyright (c) 2018-2023, Julien Seguinot (juseg.dev)
+# GNU General Public License v3.0+ (https://www.gnu.org/licenses/gpl-3.0.txt)
+#
+# Project metadata written after:
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
+
+[project]
+name = "pypdd"
+version = "0.3.1"
+description = "A positive degree day model for glacier surface mass balance"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = {file = "COPYING"}
+keywords = ["glacier", "science"]
+authors = [{name = "Julien Seguinot"}]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = ["numpy", "scipy"]
+
+[project.optional-dependencies]
+nco = ["netCDF4"]
+
+[project.scripts]
+pypdd = "pypdd:main"
+
+[project.urls]
+repository = "https://github.com/juseg/pypdd"
+
+[flake8]
+exclude = ".git,__pycache__,_build,doc/conf.py"
