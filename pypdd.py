@@ -358,7 +358,7 @@ class PDDModel():
         return (snow_melt, ice_melt)
 
     def nco(self, input_file, output_file,
-            output_size='small', output_variables=None):
+            output_size='small', output_variables=None, _diskless=False):
         """NetCDF operator.
 
         Read near-surface air temperature, precipitation rate, and standard
@@ -389,7 +389,8 @@ class PDDModel():
 
         # open netcdf files
         ids = nc4.Dataset(input_file, 'r')
-        ods = nc4.Dataset(output_file, 'w', format='NETCDF3_CLASSIC')
+        ods = nc4.Dataset(
+            output_file, 'w', format='NETCDF3_CLASSIC', diskless=_diskless)
 
         # read input temperature data
         try:
@@ -464,6 +465,8 @@ class PDDModel():
 
         # close netcdf files
         ids.close()
+        if _diskless is True:
+            return ods
         ods.close()
 
 
@@ -611,6 +614,27 @@ def main():
     pdd.nco(args.input or 'atm.nc', args.output,
             output_size=args.output_size,
             output_variables=args.output_variables)
+
+
+def test():
+
+    import hashlib
+
+    # compute smb from fake climate
+    make_fake_climate('atm.nc')
+    pdd = PDDModel()
+    ods = pdd.nco('atm.nc', 'smb.nc', _diskless=True)
+
+    # check md5 sums against v0.3.0
+    hashes = {
+        'pdd': 'c314959f12e41fd6c68ea619da71d000',
+        'smb': '631c50ad64f268f82d530cc25e764c74'}
+    for name, hash in hashes.items():
+        var = ods.variables[name][:]
+        assert hashlib.md5(var).hexdigest() == hash
+
+    # close in-memory dataset
+    ods.close()
 
 
 if __name__ == '__main__':
