@@ -613,5 +613,26 @@ def main():
             output_variables=args.output_variables)
 
 
+def test():
+
+    import hashlib
+    import netCDF4 as nc4
+
+    # compute smb from fake climate
+    # FIXME avoid writing to disk
+    make_fake_climate('atm.nc')
+    pdd = PDDModel()
+    pdd.nco('atm.nc', 'smb.nc', output_size='medium')
+    nc = nc4.Dataset('smb.nc')
+
+    # check md5 sums against v0.3.0
+    hashes = {
+        'pdd': 'c314959f12e41fd6c68ea619da71d000',
+        'smb': '631c50ad64f268f82d530cc25e764c74'}
+    for name, hash in hashes.items():
+        var = nc.variables[name][:]
+        assert hashlib.md5(var).hexdigest() == hash
+
+
 if __name__ == '__main__':
     main()
