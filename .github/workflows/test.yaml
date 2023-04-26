@@ -31,6 +31,6 @@ jobs:
           ruff --format=github .
       - name: Test with pytest
         run: |
-          pytest --cov --pyargs pypdd
+          pytest --cov pypdd.py
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
