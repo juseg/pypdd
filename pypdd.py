@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2013--2018, Julien Seguinot <seguinot@vaw.baug.ethz.ch>
+# Copyright (c) 2013-2023, Julien Seguinot (juseg.dev)
 # GNU General Public License v3.0+ (https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """
@@ -7,7 +7,7 @@ A positive degree day model for glacier surface mass balance
 """
 
 import numpy as np
-# comment
+import xarray as xr
 
 
 # Default model parameters
@@ -433,6 +433,9 @@ class PDDModel():
             if varname in xydim:
                 ovar = ods.createVariable(varname, ivar.dtype, ivar.dimensions)
                 for attname in ivar.ncattrs():
+                    # skip _FillValue (FIXME open file with xarray instead)
+                    if attname == '_FillValue':
+                        continue
                     setattr(ovar, attname, getattr(ivar, attname))
                 ovar[:] = ivar[:]
 
@@ -485,44 +488,48 @@ def make_fake_climate(filename):
     filename: str
         Name of output file.
     """
-    import netCDF4 as nc4
-
-    # open netcdf file
-    ods = nc4.Dataset(filename, 'w')
-
-    # create dimensions
-    tdim = ods.createDimension('time', 12)
-    xdim = ods.createDimension('x', 201)
-    ydim = ods.createDimension('y', 201)
-    ods.createDimension('nv', 2)
-
-    # create coordinates and time bounds
-    xvar = _create_nc_variable(ods, 'x', 'f4', ('x',))
-    yvar = _create_nc_variable(ods, 'y', 'f4', ('y',))
-    tvar = _create_nc_variable(ods, 'time', 'f4', ('time',))
-    tboundsvar = _create_nc_variable(ods, 'time_bounds', 'f4', ('time', 'nv'))
-
-    # create temperature and precipitation variables
-    for varname in ['temp', 'prec', 'stdv']:
-        _create_nc_variable(ods, varname, 'f4', ('time', 'x', 'y'))
 
     # assign coordinate values
     lx = ly = 750000
-    xvar[:] = np.linspace(-lx, lx, len(xdim))
-    yvar[:] = np.linspace(-ly, ly, len(ydim))
-    tvar[:] = (np.arange(12)+0.5) / 12
+    xvar = np.linspace(-lx, lx, 201, dtype='f4')
+    yvar = np.linspace(-ly, ly, 201, dtype='f4')
+    tvar = (np.arange(12, dtype='f4')+0.5) / 12
+    tboundsvar = np.empty((12, 2), dtype='f4')
     tboundsvar[:, 0] = tvar[:] - 1.0/24
     tboundsvar[:, 1] = tvar[:] + 1.0/24
 
     # assign temperature and precipitation values
     (xx, yy) = np.meshgrid(xvar[:], yvar[:])
-    for i in range(len(tdim)):
-        ods.variables['temp'][i] = -10 * yy/ly - 5 * np.cos(i*2*np.pi/12)
-        ods.variables['prec'][i] = xx/lx * (np.sign(xx) - np.cos(i*2*np.pi/12))
-        ods.variables['stdv'][i] = (2+xx/lx-yy/ly) * (1-np.cos(i*2*np.pi/12))
+    temp = np.empty((12, 201, 201), dtype='f4')
+    prec = np.empty((12, 201, 201), dtype='f4')
+    stdv = np.empty((12, 201, 201), dtype='f4')
+    # FIXME loop can be avoided
+    for i in range(12):
+        temp[i] = -10 * yy/ly - 5 * np.cos(i*2*np.pi/12)
+        prec[i] = xx/lx * (np.sign(xx) - np.cos(i*2*np.pi/12))
+        stdv[i] = (2+xx/lx-yy/ly) * (1-np.cos(i*2*np.pi/12))
 
-    # close netcdf file
-    ods.close()
+    # make a dataset
+    ds = xr.Dataset(
+        data_vars={
+            'temp': (['time', 'x', 'y'], temp, ATTRIBUTES['temp']),
+            'prec': (['time', 'x', 'y'], prec, ATTRIBUTES['prec']),
+            'stdv': (['time', 'x', 'y'], stdv, ATTRIBUTES['stdv']),
+        },
+        coords={
+            'x': (['x'], xvar[:]),
+            'y': (['y'], yvar[:]),
+            'time': (['time'], tvar[:]),
+            'time_bounds': (['time', 'nv'], tboundsvar[:]),
+        },
+    )
+
+    # write dataset to file
+    ds.to_netcdf('atm.nc')
+
+    # return dataset
+    return ds
+
 
 def main():
     """Main program for command-line execution."""
