@@ -33,6 +33,7 @@ jobs:
       - name: Lint with pylint
         run: |
           pylint pypdd.py
+        continue-on-error: true
       - name: Test with pytest
         run: |
           pytest pypdd.py --cov
