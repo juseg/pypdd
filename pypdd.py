@@ -628,20 +628,17 @@ def test():
     import hashlib
 
     # compute smb from fake climate
-    make_fake_climate('atm.nc')
+    ds = make_fake_climate()
     pdd = PDDModel()
-    ods = pdd.nco('atm.nc', 'smb.nc', _diskless=True)
+    smb = pdd(ds.temp, ds.prec, ds.stdv)
 
     # check md5 sums against v0.3.0
     hashes = {
         'pdd': 'c314959f12e41fd6c68ea619da71d000',
         'smb': '631c50ad64f268f82d530cc25e764c74'}
     for name, hash in hashes.items():
-        var = ods.variables[name][:]
+        var = smb[name].astype('f4')
         assert hashlib.md5(var).hexdigest() == hash
-
-    # close in-memory dataset
-    ods.close()
 
 
 if __name__ == '__main__':
