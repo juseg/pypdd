@@ -358,7 +358,7 @@ class PDDModel():
         return (snow_melt, ice_melt)
 
     def nco(self, input_file, output_file,
-            output_size='small', output_variables=None, _diskless=False):
+            output_size='small', output_variables=None):
         """NetCDF operator.
 
         Read near-surface air temperature, precipitation rate, and standard
@@ -390,7 +390,7 @@ class PDDModel():
         # open netcdf files
         ids = nc4.Dataset(input_file, 'r')
         ods = nc4.Dataset(
-            output_file, 'w', format='NETCDF3_CLASSIC', diskless=_diskless)
+            output_file, 'w', format='NETCDF3_CLASSIC')
 
         # read input temperature data
         try:
@@ -468,8 +468,6 @@ class PDDModel():
 
         # close netcdf files
         ids.close()
-        if _diskless is True:
-            return ods
         ods.close()
 
 
