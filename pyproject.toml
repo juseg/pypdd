@@ -9,7 +9,7 @@ name = "pypdd"
 version = "0.3.1"
 description = "A positive degree day model for glacier surface mass balance"
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.7"
 license = {file = "COPYING"}
 keywords = ["glacier", "science"]
 authors = [{name = "Julien Seguinot"}]
