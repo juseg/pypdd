@@ -1,10 +1,12 @@
 PyPDD
 =====
 
+.. image:: https://github.com/juseg/pypdd/actions/workflows/test.yaml/badge.svg
+   :target: https://github.com/juseg/pypdd/actions?query=workflow%3Atest
+.. image:: https://codecov.io/github/juseg/pypdd/branch/main/graph/badge.svg
+   :target: https://codecov.io/github/juseg/pypdd
 .. image:: https://img.shields.io/pypi/v/pypdd.svg
    :target: https://pypi.python.org/pypi/pypdd
-.. image:: https://img.shields.io/pypi/l/pypdd.svg
-   :target: https://www.gnu.org/licenses/gpl-3.0.txt
 .. image:: https://zenodo.org/badge/8483394.svg
    :target: https://zenodo.org/badge/latestdoi/8483394
 
