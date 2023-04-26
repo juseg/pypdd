@@ -476,7 +476,7 @@ class PDDModel():
 # Command-line interface
 # ----------------------
 
-def make_fake_climate(filename):
+def make_fake_climate(filename='atm.nc'):
     """Create an artificial temperature and precipitation file.
 
     This function is used if pypdd.py is called as a script without an input
@@ -485,7 +485,7 @@ def make_fake_climate(filename):
     standard deviation of near-surface air temperature to be read by
     `PDDModel.nco`.
 
-    filename: str
+    filename: str, optional
         Name of output file.
     """
 
@@ -525,7 +525,7 @@ def make_fake_climate(filename):
     )
 
     # write dataset to file
-    ds.to_netcdf('atm.nc')
+    ds.to_netcdf(filename)
 
     # return dataset
     return ds
