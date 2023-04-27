@@ -229,25 +229,31 @@ class PDDModel():
                                 - self.refreeze_ice * ice_melt_rate
         inst_smb = accu_rate - runoff_rate
 
-        # output
-        return {'temp':           temp,
-                'prec':           prec,
-                'stdv':           stdv,
-                'inst_pdd':       inst_pdd,
-                'accu_rate':      accu_rate,
-                'snow_melt_rate': snow_melt_rate,
-                'ice_melt_rate':  ice_melt_rate,
-                'melt_rate':      melt_rate,
-                'runoff_rate':    runoff_rate,
-                'inst_smb':       inst_smb,
-                'snow_depth':     snow_depth,
-                'pdd':            self._integrate(inst_pdd),
-                'accu':           self._integrate(accu_rate),
-                'snow_melt':      self._integrate(snow_melt_rate),
-                'ice_melt':       self._integrate(ice_melt_rate),
-                'melt':           self._integrate(melt_rate),
-                'runoff':         self._integrate(runoff_rate),
-                'smb':            self._integrate(inst_smb)}
+        # make a dataset
+        # FIXME add coordinate variables
+        ds = xr.Dataset(
+            data_vars={
+                'temp': (['time', 'x', 'y'], temp),
+                'prec': (['time', 'x', 'y'], prec),
+                'stdv': (['time', 'x', 'y'], stdv),
+                'inst_pdd': (['time', 'x', 'y'], inst_pdd),
+                'accu_rate': (['time', 'x', 'y'], accu_rate),
+                'snow_melt_rate': (['time', 'x', 'y'], snow_melt_rate),
+                'ice_melt_rate': (['time', 'x', 'y'], ice_melt_rate),
+                'melt_rate': (['time', 'x', 'y'], melt_rate),
+                'runoff_rate': (['time', 'x', 'y'], runoff_rate),
+                'inst_smb': (['time', 'x', 'y'], inst_smb),
+                'snow_depth': (['time', 'x', 'y'], snow_depth),
+                'pdd': (['x', 'y'], self._integrate(inst_pdd)),
+                'accu': (['x', 'y'], self._integrate(accu_rate)),
+                'snow_melt': (['x', 'y'], self._integrate(snow_melt_rate)),
+                'ice_melt': (['x', 'y'], self._integrate(ice_melt_rate)),
+                'melt': (['x', 'y'], self._integrate(melt_rate)),
+                'runoff': (['x', 'y'], self._integrate(runoff_rate)),
+                'smb': (['x', 'y'], self._integrate(inst_smb))})
+
+        # return dataset
+        return ds
 
     def _expand(self, array, shape):
         """Expand an array to the given shape"""
@@ -640,7 +646,7 @@ def test():
         'pdd': 'c314959f12e41fd6c68ea619da71d000',
         'smb': '631c50ad64f268f82d530cc25e764c74'}
     for name, hash in hashes.items():
-        var = smb[name].astype('f4')
+        var = smb[name].data.astype('f4')
         assert hashlib.md5(var).hexdigest() == hash
 
 
