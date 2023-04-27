@@ -487,37 +487,41 @@ def make_fake_climate(filename='atm.nc'):
         Name of output file.
     """
 
+    # FIXME code could be simplified a lot more but we need a better test not
+    # relying on exact reproducibility of this toy climate data.
+
     # assign coordinate values
     lx = ly = 750000
-    xvar = np.linspace(-lx, lx, 201, dtype='f4')
-    yvar = np.linspace(-ly, ly, 201, dtype='f4')
-    tvar = (np.arange(12, dtype='f4')+0.5) / 12
+    x = xr.DataArray(np.linspace(-lx, lx, 201, dtype='f4'), dims='x')
+    y = xr.DataArray(np.linspace(-ly, ly, 201, dtype='f4'), dims='y')
+    time = xr.DataArray((np.arange(12, dtype='f4')+0.5) / 12, dims='time')
     tboundsvar = np.empty((12, 2), dtype='f4')
-    tboundsvar[:, 0] = tvar[:] - 1.0/24
-    tboundsvar[:, 1] = tvar[:] + 1.0/24
+    tboundsvar[:, 0] = time[:] - 1.0/24
+    tboundsvar[:, 1] = time[:] + 1.0/24
 
-    # assign temperature and precipitation values
-    (xx, yy) = np.meshgrid(xvar[:], yvar[:])
-    temp = np.empty((12, 201, 201), dtype='f4')
-    prec = np.empty((12, 201, 201), dtype='f4')
-    stdv = np.empty((12, 201, 201), dtype='f4')
-    # FIXME loop can be avoided
-    for i in range(12):
-        temp[i] = -10 * yy/ly - 5 * np.cos(i*2*np.pi/12)
-        prec[i] = xx/lx * (np.sign(xx) - np.cos(i*2*np.pi/12))
-        stdv[i] = (2+xx/lx-yy/ly) * (1-np.cos(i*2*np.pi/12))
+    # seasonality index from winter to summer
+    season = xr.DataArray(-np.cos(np.arange(12)*2*np.pi/12), dims='time')
+
+    # order of operation is dictated by test md5sum and legacy f4 dtype
+    temp = 5 * season - 10 * x / lx + 0 * y
+    prec = y / ly * (season.astype('f4') + 0 * x + np.sign(y))
+    stdv = (2+y/ly-x/lx) * (1+season)
+
+    # this is also why transpose is needed here, and final type conversion
+    temp = temp.transpose('time', 'x', 'y').astype('f4')
+    prec = prec.transpose('time', 'x', 'y').astype('f4')
+    stdv = stdv.transpose('time', 'x', 'y').astype('f4')
+
+    # assign variable attributes
+    temp.attrs.update(ATTRIBUTES['temp'])
+    prec.attrs.update(ATTRIBUTES['prec'])
+    stdv.attrs.update(ATTRIBUTES['stdv'])
 
     # make a dataset
     ds = xr.Dataset(
-        data_vars={
-            'temp': (['time', 'x', 'y'], temp, ATTRIBUTES['temp']),
-            'prec': (['time', 'x', 'y'], prec, ATTRIBUTES['prec']),
-            'stdv': (['time', 'x', 'y'], stdv, ATTRIBUTES['stdv']),
-        },
+        data_vars={'temp': temp, 'prec': prec, 'stdv': stdv},
         coords={
-            'x': (['x'], xvar[:]),
-            'y': (['y'], yvar[:]),
-            'time': (['time'], tvar[:]),
+            'time': time, 'x': x, 'y': y,
             'time_bounds': (['time', 'nv'], tboundsvar[:]),
         },
     )
