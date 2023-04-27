@@ -635,7 +635,7 @@ def main():
             output_variables=args.output_variables)
 
 
-def test():
+def test_pdd():
 
     import hashlib
 
@@ -643,6 +643,25 @@ def test():
     ds = make_fake_climate()
     pdd = PDDModel()
     smb = pdd(ds.temp, ds.prec, ds.stdv)
+
+    # check md5 sums against v0.3.0
+    hashes = {
+        'pdd': 'c314959f12e41fd6c68ea619da71d000',
+        'smb': '631c50ad64f268f82d530cc25e764c74'}
+    for name, hash in hashes.items():
+        var = smb[name].data.astype('f4')
+        assert hashlib.md5(var).hexdigest() == hash
+
+
+def test_nco():
+
+    import hashlib
+
+    # compute smb from fake climate
+    make_fake_climate('atm.nc')
+    pdd = PDDModel()
+    pdd.nco('atm.nc', 'smb.nc')
+    smb = xr.open_dataset('smb.nc')
 
     # check md5 sums against v0.3.0
     hashes = {
