@@ -192,17 +192,20 @@ class PDDModel():
         """
 
         # ensure numpy arrays
+        # FIXME use data arrays instead
         temp = np.asarray(temp)
         prec = np.asarray(prec)
         stdv = np.asarray(stdv)
 
         # expand arrays to the largest shape
+        # FIXME use xarray auto-broadcasting instead
         maxshape = max(temp.shape, prec.shape, stdv.shape)
         temp = self._expand(temp, maxshape)
         prec = self._expand(prec, maxshape)
         stdv = self._expand(stdv, maxshape)
 
         # interpolate time-series
+        # FIXME propagate data arrays, coordinates
         temp = self._interpolate(temp)
         prec = self._interpolate(prec)
         stdv = self._interpolate(stdv)
