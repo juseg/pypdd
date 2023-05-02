@@ -417,20 +417,16 @@ class PDDModel():
         # run PDD model
         smb = self(atm.temp, atm.prec, stdv=atm.get('stdv'))
 
-        # if output_variables was not defined, use output_size
-        if output_variables is None:
-            output_variables = ['pdd', 'smb']
-            if output_size in ('medium', 'big'):
-                output_variables += ['accu', 'snow_melt', 'ice_melt', 'melt',
-                                     'runoff']
-            if output_size == 'big':
-                output_variables += ['temp', 'prec', 'stdv', 'inst_pdd',
-                                     'accu_rate', 'snow_melt_rate',
-                                     'ice_melt_rate', 'melt_rate',
-                                     'runoff_rate', 'inst_smb', 'snow_depth']
+        # drop variables
+        if output_variables is not None:
+            smb = smb[output_variables]
+        elif output_size == 'small':
+            smb = smb[['pdd', 'smb']]
+        elif output_size == 'medium':
+            smb = smb[['pdd', 'smb', 'accu', 'snow_melt', 'ice_melt', 'melt',
+                       'runoff']]
 
         # write netcdf file
-        smb = smb[output_variables]
         smb.to_netcdf(output_file)
 
 
