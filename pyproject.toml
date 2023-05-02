@@ -9,7 +9,7 @@ name = "pypdd"
 version = "0.3.1"
 description = "A positive degree day model for glacier surface mass balance"
 readme = "README.rst"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = {file = "COPYING"}
 keywords = ["glacier", "science"]
 authors = [{name = "Julien Seguinot"}]
@@ -20,7 +20,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering",
 ]
-dependencies = ["numpy", "scipy"]
+dependencies = ["numpy", "scipy", "xarray"]
 
 [project.optional-dependencies]
 nco = ["netCDF4"]

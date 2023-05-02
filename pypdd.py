@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2013--2018, Julien Seguinot <seguinot@vaw.baug.ethz.ch>
+# Copyright (c) 2013-2023, Julien Seguinot (juseg.dev)
 # GNU General Public License v3.0+ (https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """
@@ -7,7 +7,7 @@ A positive degree day model for glacier surface mass balance
 """
 
 import numpy as np
-# comment
+import xarray as xr
 
 
 # Default model parameters
@@ -110,14 +110,6 @@ ATTRIBUTES = {
         'units':     'm'}}
 
 
-def _create_nc_variable(dataset, varname, dtype, dimensions):
-    """Create netCDF variable and apply default attributes"""
-    var = dataset.createVariable(varname, dtype, dimensions)
-    for (attr, value) in ATTRIBUTES[varname].items():
-        setattr(var, attr, value)
-    return var
-
-
 # PDD model class
 # ---------------
 
@@ -192,17 +184,20 @@ class PDDModel():
         """
 
         # ensure numpy arrays
+        # FIXME use data arrays instead
         temp = np.asarray(temp)
         prec = np.asarray(prec)
         stdv = np.asarray(stdv)
 
         # expand arrays to the largest shape
+        # FIXME use xarray auto-broadcasting instead
         maxshape = max(temp.shape, prec.shape, stdv.shape)
         temp = self._expand(temp, maxshape)
         prec = self._expand(prec, maxshape)
         stdv = self._expand(stdv, maxshape)
 
         # interpolate time-series
+        # FIXME propagate data arrays, coordinates
         temp = self._interpolate(temp)
         prec = self._interpolate(prec)
         stdv = self._interpolate(stdv)
@@ -229,25 +224,31 @@ class PDDModel():
                                 - self.refreeze_ice * ice_melt_rate
         inst_smb = accu_rate - runoff_rate
 
-        # output
-        return {'temp':           temp,
-                'prec':           prec,
-                'stdv':           stdv,
-                'inst_pdd':       inst_pdd,
-                'accu_rate':      accu_rate,
-                'snow_melt_rate': snow_melt_rate,
-                'ice_melt_rate':  ice_melt_rate,
-                'melt_rate':      melt_rate,
-                'runoff_rate':    runoff_rate,
-                'inst_smb':       inst_smb,
-                'snow_depth':     snow_depth,
-                'pdd':            self._integrate(inst_pdd),
-                'accu':           self._integrate(accu_rate),
-                'snow_melt':      self._integrate(snow_melt_rate),
-                'ice_melt':       self._integrate(ice_melt_rate),
-                'melt':           self._integrate(melt_rate),
-                'runoff':         self._integrate(runoff_rate),
-                'smb':            self._integrate(inst_smb)}
+        # make a dataset
+        # FIXME add coordinate variables
+        ds = xr.Dataset(
+            data_vars={
+                'temp': (['time', 'x', 'y'], temp),
+                'prec': (['time', 'x', 'y'], prec),
+                'stdv': (['time', 'x', 'y'], stdv),
+                'inst_pdd': (['time', 'x', 'y'], inst_pdd),
+                'accu_rate': (['time', 'x', 'y'], accu_rate),
+                'snow_melt_rate': (['time', 'x', 'y'], snow_melt_rate),
+                'ice_melt_rate': (['time', 'x', 'y'], ice_melt_rate),
+                'melt_rate': (['time', 'x', 'y'], melt_rate),
+                'runoff_rate': (['time', 'x', 'y'], runoff_rate),
+                'inst_smb': (['time', 'x', 'y'], inst_smb),
+                'snow_depth': (['time', 'x', 'y'], snow_depth),
+                'pdd': (['x', 'y'], self._integrate(inst_pdd)),
+                'accu': (['x', 'y'], self._integrate(accu_rate)),
+                'snow_melt': (['x', 'y'], self._integrate(snow_melt_rate)),
+                'ice_melt': (['x', 'y'], self._integrate(ice_melt_rate)),
+                'melt': (['x', 'y'], self._integrate(melt_rate)),
+                'runoff': (['x', 'y'], self._integrate(runoff_rate)),
+                'smb': (['x', 'y'], self._integrate(inst_smb))})
+
+        # return dataset
+        return ds
 
     def _expand(self, array, shape):
         """Expand an array to the given shape"""
@@ -358,7 +359,7 @@ class PDDModel():
         return (snow_melt, ice_melt)
 
     def nco(self, input_file, output_file,
-            output_size='small', output_variables=None, _diskless=False):
+            output_size='small', output_variables=None):
         """NetCDF operator.
 
         Read near-surface air temperature, precipitation rate, and standard
@@ -385,95 +386,46 @@ class PDDModel():
             List of output variables to write in the output file. Prevails
             over any choice of *output_size*.
         """
-        import netCDF4 as nc4
 
-        # open netcdf files
-        ids = nc4.Dataset(input_file, 'r')
-        ods = nc4.Dataset(
-            output_file, 'w', format='NETCDF3_CLASSIC', diskless=_diskless)
+        # open atmosphere file
+        atm = xr.open_dataset(input_file)
 
-        # read input temperature data
-        try:
-            temp = ids.variables['temp'][:]
-        except KeyError:
+        # check for missing variables (move this to __call__(self, ds))
+        if 'temp' not in atm:
             raise KeyError('could not find input variable %s (%s) in file %s.'
                            % ('temp', ATTRIBUTES['temp']['long_name'], input_file))
-
-        # read input precipitation data
-        try:
-            prec = ids.variables['prec'][:]
-        except KeyError:
+        if 'prec' not in atm:
             raise KeyError('could not find input variable %s (%s) in file %s.'
                            % ('prec', ATTRIBUTES['prec']['long_name'], input_file))
-
-        # read input standard deviation, warn and use zero if absent
-        try:
-            stdv = ids.variables['stdv'][:]
-        except KeyError:
+        if 'stdv' not in atm:
             import warnings
             warnings.warn('Variable stdv not found, assuming zero everywhere.')
-            stdv = 0.0
 
         # convert to degC
         # TODO: handle unit conversion better
-        if ids.variables['temp'].units in ('K', 'Kelvin'):
-            temp = temp - 273.15
-
-        # get dimensions tuple from temp variable
-        txydim = ids.variables['temp'].dimensions
-        xydim = txydim[1:]
-
-        # create dimensions
-        ods.createDimension(txydim[0], self.interpolate_n)
-        for dimname in xydim:
-            ods.createDimension(dimname, len(ids.dimensions[dimname]))
-
-        # copy spatial coordinates
-        for varname, ivar in ids.variables.items():
-            if varname in xydim:
-                ovar = ods.createVariable(varname, ivar.dtype, ivar.dimensions)
-                for attname in ivar.ncattrs():
-                    setattr(ovar, attname, getattr(ivar, attname))
-                ovar[:] = ivar[:]
-
-        # create time coordinate
-        var = _create_nc_variable(ods, 'time', 'f4', txydim[0])
-        var[:] = (np.arange(self.interpolate_n)+0.5) / self.interpolate_n
+        if atm.temp.units in ('K', 'Kelvin'):
+            atm['temp'] -= 273.15
 
         # run PDD model
-        smb = self(temp, prec, stdv=stdv)
+        smb = self(atm.temp, atm.prec, stdv=atm.get('stdv'))
 
-        # if output_variables was not defined, use output_size
-        if output_variables is None:
-            output_variables = ['pdd', 'smb']
-            if output_size in ('medium', 'big'):
-                output_variables += ['accu', 'snow_melt', 'ice_melt', 'melt',
-                                     'runoff']
-            if output_size == 'big':
-                output_variables += ['temp', 'prec', 'stdv', 'inst_pdd',
-                                     'accu_rate', 'snow_melt_rate',
-                                     'ice_melt_rate', 'melt_rate',
-                                     'runoff_rate', 'inst_smb', 'snow_depth']
+        # drop variables
+        if output_variables is not None:
+            smb = smb[output_variables]
+        elif output_size == 'small':
+            smb = smb[['pdd', 'smb']]
+        elif output_size == 'medium':
+            smb = smb[['pdd', 'smb', 'accu', 'snow_melt', 'ice_melt', 'melt',
+                       'runoff']]
 
-        # write output variables
-        for varname in output_variables:
-            if varname not in smb:
-                raise KeyError("%s is not a valid variable name" % varname)
-            dim = (txydim if smb[varname].ndim == 3 else xydim)
-            var = _create_nc_variable(ods, varname, 'f4', dim)
-            var[:] = smb[varname]
-
-        # close netcdf files
-        ids.close()
-        if _diskless is True:
-            return ods
-        ods.close()
+        # write netcdf file
+        smb.to_netcdf(output_file)
 
 
 # Command-line interface
 # ----------------------
 
-def make_fake_climate(filename):
+def make_fake_climate(filename=None):
     """Create an artificial temperature and precipitation file.
 
     This function is used if pypdd.py is called as a script without an input
@@ -482,47 +434,56 @@ def make_fake_climate(filename):
     standard deviation of near-surface air temperature to be read by
     `PDDModel.nco`.
 
-    filename: str
+    filename: str, optional
         Name of output file.
     """
-    import netCDF4 as nc4
 
-    # open netcdf file
-    ods = nc4.Dataset(filename, 'w')
-
-    # create dimensions
-    tdim = ods.createDimension('time', 12)
-    xdim = ods.createDimension('x', 201)
-    ydim = ods.createDimension('y', 201)
-    ods.createDimension('nv', 2)
-
-    # create coordinates and time bounds
-    xvar = _create_nc_variable(ods, 'x', 'f4', ('x',))
-    yvar = _create_nc_variable(ods, 'y', 'f4', ('y',))
-    tvar = _create_nc_variable(ods, 'time', 'f4', ('time',))
-    tboundsvar = _create_nc_variable(ods, 'time_bounds', 'f4', ('time', 'nv'))
-
-    # create temperature and precipitation variables
-    for varname in ['temp', 'prec', 'stdv']:
-        _create_nc_variable(ods, varname, 'f4', ('time', 'x', 'y'))
+    # FIXME code could be simplified a lot more but we need a better test not
+    # relying on exact reproducibility of this toy climate data.
 
     # assign coordinate values
     lx = ly = 750000
-    xvar[:] = np.linspace(-lx, lx, len(xdim))
-    yvar[:] = np.linspace(-ly, ly, len(ydim))
-    tvar[:] = (np.arange(12)+0.5) / 12
-    tboundsvar[:, 0] = tvar[:] - 1.0/24
-    tboundsvar[:, 1] = tvar[:] + 1.0/24
+    x = xr.DataArray(np.linspace(-lx, lx, 201, dtype='f4'), dims='x')
+    y = xr.DataArray(np.linspace(-ly, ly, 201, dtype='f4'), dims='y')
+    time = xr.DataArray((np.arange(12, dtype='f4')+0.5) / 12, dims='time')
+    tboundsvar = np.empty((12, 2), dtype='f4')
+    tboundsvar[:, 0] = time[:] - 1.0/24
+    tboundsvar[:, 1] = time[:] + 1.0/24
 
-    # assign temperature and precipitation values
-    (xx, yy) = np.meshgrid(xvar[:], yvar[:])
-    for i in range(len(tdim)):
-        ods.variables['temp'][i] = -10 * yy/ly - 5 * np.cos(i*2*np.pi/12)
-        ods.variables['prec'][i] = xx/lx * (np.sign(xx) - np.cos(i*2*np.pi/12))
-        ods.variables['stdv'][i] = (2+xx/lx-yy/ly) * (1-np.cos(i*2*np.pi/12))
+    # seasonality index from winter to summer
+    season = xr.DataArray(-np.cos(np.arange(12)*2*np.pi/12), dims='time')
 
-    # close netcdf file
-    ods.close()
+    # order of operation is dictated by test md5sum and legacy f4 dtype
+    temp = 5 * season - 10 * x / lx + 0 * y
+    prec = y / ly * (season.astype('f4') + 0 * x + np.sign(y))
+    stdv = (2+y/ly-x/lx) * (1+season)
+
+    # this is also why transpose is needed here, and final type conversion
+    temp = temp.transpose('time', 'x', 'y').astype('f4')
+    prec = prec.transpose('time', 'x', 'y').astype('f4')
+    stdv = stdv.transpose('time', 'x', 'y').astype('f4')
+
+    # assign variable attributes
+    temp.attrs.update(ATTRIBUTES['temp'])
+    prec.attrs.update(ATTRIBUTES['prec'])
+    stdv.attrs.update(ATTRIBUTES['stdv'])
+
+    # make a dataset
+    ds = xr.Dataset(
+        data_vars={'temp': temp, 'prec': prec, 'stdv': stdv},
+        coords={
+            'time': time, 'x': x, 'y': y,
+            'time_bounds': (['time', 'nv'], tboundsvar[:]),
+        },
+    )
+
+    # write dataset to file
+    if filename is not None:
+        ds.to_netcdf(filename)
+
+    # return dataset
+    return ds
+
 
 def main():
     """Main program for command-line execution."""
@@ -616,25 +577,41 @@ def main():
             output_variables=args.output_variables)
 
 
-def test():
+def test_pdd():
 
     import hashlib
 
     # compute smb from fake climate
-    make_fake_climate('atm.nc')
+    ds = make_fake_climate()
     pdd = PDDModel()
-    ods = pdd.nco('atm.nc', 'smb.nc', _diskless=True)
+    smb = pdd(ds.temp, ds.prec, ds.stdv)
 
     # check md5 sums against v0.3.0
     hashes = {
         'pdd': 'c314959f12e41fd6c68ea619da71d000',
         'smb': '631c50ad64f268f82d530cc25e764c74'}
     for name, hash in hashes.items():
-        var = ods.variables[name][:]
+        var = smb[name].data.astype('f4')
         assert hashlib.md5(var).hexdigest() == hash
 
-    # close in-memory dataset
-    ods.close()
+
+def test_nco():
+
+    import hashlib
+
+    # compute smb from fake climate
+    make_fake_climate('atm.nc')
+    pdd = PDDModel()
+    pdd.nco('atm.nc', 'smb.nc')
+    smb = xr.open_dataset('smb.nc')
+
+    # check md5 sums against v0.3.0
+    hashes = {
+        'pdd': 'c314959f12e41fd6c68ea619da71d000',
+        'smb': '631c50ad64f268f82d530cc25e764c74'}
+    for name, hash in hashes.items():
+        var = smb[name].data.astype('f4')
+        assert hashlib.md5(var).hexdigest() == hash
 
 
 if __name__ == '__main__':

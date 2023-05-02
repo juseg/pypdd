@@ -1,3 +1,6 @@
+.. Copyright (c) 2013-2023, Julien Seguinot (juseg.dev)
+.. GNU General Public License v3.0+ (https://www.gnu.org/licenses/gpl-3.0.txt)
+
 PyPDD
 =====
 
@@ -34,7 +37,7 @@ Installation::
 The PDDModel class
 ------------------
 
-**Requires:** NumPy_, SciPy_.
+**Requires:** NumPy_, SciPy_, Xarray_.
 
 A PDD model instance can be created by::
 
@@ -139,3 +142,4 @@ Applications of PyPDD:
 .. _Parallel Ice Sheet Model: http://www.pism-docs.org
 .. _PyPDD: https://github.com/jsegu/pypdd
 .. _SciPy: http://www.scipy.org
+.. _Xarray: https://xarray.dev
