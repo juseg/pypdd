@@ -394,66 +394,28 @@ class PDDModel():
             List of output variables to write in the output file. Prevails
             over any choice of *output_size*.
         """
-        import netCDF4 as nc4
 
-        # open netcdf files
-        ids = nc4.Dataset(input_file, 'r')
-        ods = nc4.Dataset(
-            output_file, 'w', format='NETCDF3_CLASSIC')
+        # open atmosphere file
+        atm = xr.open_dataset(input_file)
 
-        # read input temperature data
-        try:
-            temp = ids.variables['temp'][:]
-        except KeyError:
+        # check for missing variables (move this to __call__(self, ds))
+        if 'temp' not in atm:
             raise KeyError('could not find input variable %s (%s) in file %s.'
                            % ('temp', ATTRIBUTES['temp']['long_name'], input_file))
-
-        # read input precipitation data
-        try:
-            prec = ids.variables['prec'][:]
-        except KeyError:
+        if 'prec' not in atm:
             raise KeyError('could not find input variable %s (%s) in file %s.'
                            % ('prec', ATTRIBUTES['prec']['long_name'], input_file))
-
-        # read input standard deviation, warn and use zero if absent
-        try:
-            stdv = ids.variables['stdv'][:]
-        except KeyError:
+        if 'stdv' not in atm:
             import warnings
             warnings.warn('Variable stdv not found, assuming zero everywhere.')
-            stdv = 0.0
 
         # convert to degC
         # TODO: handle unit conversion better
-        if ids.variables['temp'].units in ('K', 'Kelvin'):
-            temp = temp - 273.15
-
-        # get dimensions tuple from temp variable
-        txydim = ids.variables['temp'].dimensions
-        xydim = txydim[1:]
-
-        # create dimensions
-        ods.createDimension(txydim[0], self.interpolate_n)
-        for dimname in xydim:
-            ods.createDimension(dimname, len(ids.dimensions[dimname]))
-
-        # copy spatial coordinates
-        for varname, ivar in ids.variables.items():
-            if varname in xydim:
-                ovar = ods.createVariable(varname, ivar.dtype, ivar.dimensions)
-                for attname in ivar.ncattrs():
-                    # skip _FillValue (FIXME open file with xarray instead)
-                    if attname == '_FillValue':
-                        continue
-                    setattr(ovar, attname, getattr(ivar, attname))
-                ovar[:] = ivar[:]
-
-        # create time coordinate
-        var = _create_nc_variable(ods, 'time', 'f4', txydim[0])
-        var[:] = (np.arange(self.interpolate_n)+0.5) / self.interpolate_n
+        if atm.temp.units in ('K', 'Kelvin'):
+            atm['temp'] -= 273.15
 
         # run PDD model
-        smb = self(temp, prec, stdv=stdv)
+        smb = self(atm.temp, atm.prec, stdv=atm.get('stdv'))
 
         # if output_variables was not defined, use output_size
         if output_variables is None:
@@ -467,17 +429,9 @@ class PDDModel():
                                      'ice_melt_rate', 'melt_rate',
                                      'runoff_rate', 'inst_smb', 'snow_depth']
 
-        # write output variables
-        for varname in output_variables:
-            if varname not in smb:
-                raise KeyError("%s is not a valid variable name" % varname)
-            dim = (txydim if smb[varname].ndim == 3 else xydim)
-            var = _create_nc_variable(ods, varname, 'f4', dim)
-            var[:] = smb[varname]
-
-        # close netcdf files
-        ids.close()
-        ods.close()
+        # write netcdf file
+        smb = smb[output_variables]
+        smb.to_netcdf(output_file)
 
 
 # Command-line interface
