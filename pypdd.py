@@ -110,14 +110,6 @@ ATTRIBUTES = {
         'units':     'm'}}
 
 
-def _create_nc_variable(dataset, varname, dtype, dimensions):
-    """Create netCDF variable and apply default attributes"""
-    var = dataset.createVariable(varname, dtype, dimensions)
-    for (attr, value) in ATTRIBUTES[varname].items():
-        setattr(var, attr, value)
-    return var
-
-
 # PDD model class
 # ---------------
 
